@@ -1,0 +1,34 @@
+[workspace]
+members = ["src-tauri", "crates/mailstudio-core"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+rust-version = "1.85"
+authors = ["MailStudio contributors"]
+
+[workspace.dependencies]
+mailstudio-core = { path = "crates/mailstudio-core" }
+base64 = "0.22.1"
+dirs = "7.0.0"
+keyring = "4.2.0"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "sync", "time", "net", "io-util"] }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "json"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

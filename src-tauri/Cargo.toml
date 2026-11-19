@@ -1,0 +1,42 @@
+[package]
+name = "mailstudio"
+description = "MailStudio desktop application (thin Tauri shell around mailstudio-core)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+default-run = "mailstudio"
+
+[lib]
+name = "mailstudio_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "mailstudio-bridge"
+path = "src/bin/bridge.rs"
+required-features = ["dev-bridge"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+mailstudio-core.workspace = true
+serde_json.workspace = true
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2.7"
+tokio.workspace = true
+axum = { workspace = true, optional = true }
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2.4.5"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+# Debug-only HTTP bridge so the UI can run in a plain browser against the real backend.
+dev-bridge = ["dep:axum"]
+
+[lints]
+workspace = true

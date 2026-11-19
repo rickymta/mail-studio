@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "ui", "runtimeExecutable": "pnpm", "runtimeArgs": ["dev"], "port": 1430 },
+    {
+      "name": "bridge",
+      "runtimeExecutable": "cargo",
+      "runtimeArgs": ["run", "-p", "mailstudio", "--bin", "mailstudio-bridge", "--features", "dev-bridge"],
+      "port": 1431
+    }
+  ]
+}
