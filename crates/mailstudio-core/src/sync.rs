@@ -293,7 +293,7 @@ pub async fn set_flags(ids: &[i64], seen: Option<bool>, flagged: Option<bool>) -
             for m in items {
                 db::set_flags(c, m.id, seen, flagged)?;
                 if let Some(v) = seen.filter(|v| *v != m.seen) {
-                    db::bump_unread(c, *folder_id, if v { -1 } else { 1 })?;
+                    db::bump_counts(c, *folder_id, 0, if v { -1 } else { 1 })?;
                 }
             }
             Ok(())
@@ -343,7 +343,7 @@ fn forget_locally(account_id: i64, folder_id: i64, items: &[db::Summary]) -> Res
     let unread = items.iter().filter(|m| !m.seen).count() as i64;
     db::with(|c| {
         db::delete_messages(c, &ids)?;
-        db::bump_unread(c, folder_id, -unread)
+        db::bump_counts(c, folder_id, -(ids.len() as i64), -unread)
     })?;
     changed(account_id, folder_id);
     Ok(())

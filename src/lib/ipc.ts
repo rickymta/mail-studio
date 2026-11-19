@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type * as T from './types';
 
 const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-const BRIDGE = 'http://127.0.0.1:1431/call';
+const BRIDGE = 'http://127.0.0.1:1441/call';
 
 export class IpcError extends Error {
   kind: string;

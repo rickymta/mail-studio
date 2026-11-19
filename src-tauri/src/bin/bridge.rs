@@ -1,4 +1,4 @@
-//! Dev-only HTTP bridge: `POST /call {cmd, args}` on 127.0.0.1:1431, so the UI served by Vite can
+//! Dev-only HTTP bridge: `POST /call {cmd, args}` on 127.0.0.1:1441, so the UI served by Vite can
 //! drive the real backend from a normal browser. Never shipped (feature `dev-bridge`).
 
 use axum::Json;
@@ -34,7 +34,7 @@ async fn cors(req: axum::extract::Request, next: axum::middleware::Next) -> Resp
     let h = res.headers_mut();
     h.insert(
         header::ACCESS_CONTROL_ALLOW_ORIGIN,
-        HeaderValue::from_static("http://localhost:1430"),
+        HeaderValue::from_static("http://localhost:1440"),
     );
     h.insert(
         header::ACCESS_CONTROL_ALLOW_HEADERS,
@@ -56,9 +56,9 @@ async fn main() {
         )
         .layer(axum::middleware::from_fn(cors));
     tokio::spawn(mailstudio_core::background_loop());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:1431")
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:1441")
         .await
-        .expect("bind 1431");
-    println!("MailStudio dev bridge on http://127.0.0.1:1431");
+        .expect("bind 1441");
+    println!("MailStudio dev bridge on http://127.0.0.1:1441");
     axum::serve(listener, app).await.expect("serve");
 }

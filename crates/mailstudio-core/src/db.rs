@@ -550,15 +550,14 @@ pub fn set_folder_counts(c: &Connection, id: i64, total: i64, unread: i64) -> Re
     Ok(())
 }
 
-/// Adjust the unread counter after a local change (the next sync brings the server's number).
-pub fn bump_unread(c: &Connection, folder_id: i64, delta: i64) -> Result<()> {
+/// Adjust the counters after a local change (the next sync brings the server's numbers).
+pub fn bump_counts(c: &Connection, folder_id: i64, total: i64, unread: i64) -> Result<()> {
     c.execute(
-        "UPDATE folders SET unread=MAX(0, unread + ?1) WHERE id=?2",
-        params![delta, folder_id],
+        "UPDATE folders SET total=MAX(0, total + ?1), unread=MAX(0, unread + ?2) WHERE id=?3",
+        params![total, unread, folder_id],
     )?;
     Ok(())
 }
-
 /// Record the folder's UIDVALIDITY; when it changed, every cached message is stale and dropped.
 pub fn check_uid_validity(c: &Connection, folder_id: i64, validity: i64) -> Result<()> {
     let old: Option<i64> = c.query_row(
