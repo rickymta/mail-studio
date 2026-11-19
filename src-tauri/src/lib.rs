@@ -72,10 +72,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
-            if let Some(window) = app.get_webview_window("main") {
-                if fit_to_screen(&window).is_err() {
-                    let _ = window.show();
-                }
+            if let Some(window) = app.get_webview_window("main")
+                && fit_to_screen(&window).is_err()
+            {
+                let _ = window.show();
             }
             tauri::async_runtime::spawn(mailstudio_core::background_loop());
             Ok(())

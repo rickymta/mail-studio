@@ -330,10 +330,10 @@ pub fn forget(account_id: i64) {
 
 /// A valid access token for an OAuth account, refreshed when it is about to expire.
 pub async fn access_token(account: &Account) -> Result<String> {
-    if let Some((token, expires)) = lock().access.get(&account.id).cloned() {
-        if expires - 60 > db::now() {
-            return Ok(token);
-        }
+    if let Some((token, expires)) = lock().access.get(&account.id).cloned()
+        && expires - 60 > db::now()
+    {
+        return Ok(token);
     }
     let refresh = secrets::get(&secrets::refresh_key(account.id))?.ok_or_else(|| {
         Error::Auth(format!(
