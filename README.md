@@ -91,6 +91,8 @@ crates/mailstudio-core   backend không phụ thuộc UI: một hàm dispatch(cm
 src-tauri                vỏ Tauri mỏng + cầu nối HTTP cho dev
 src                      giao diện React + TypeScript + Tailwind + zustand
 scripts/dev-mail-server.py   máy chủ IMAP/SMTP giả
+assets/icons                 ảnh gốc của icon ứng dụng và icon thanh trạng thái
+scripts/make-icons.py        sinh lại toàn bộ icon từ hai ảnh gốc (cần Pillow + numpy)
 ```
 
 ## Giới hạn hiện tại

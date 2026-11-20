@@ -23,7 +23,7 @@ tauri-build = { version = "2.7.4", features = [] }
 [dependencies]
 mailstudio-core.workspace = true
 serde_json.workspace = true
-tauri = { version = "2.12.5", features = [] }
+tauri = { version = "2.12.5", features = ["tray-icon", "image-png"] }
 tauri-plugin-dialog = "2.8.4"
 tauri-plugin-notification = "2.8"
 tauri-plugin-opener = "2.7"

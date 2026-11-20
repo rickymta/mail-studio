@@ -74,7 +74,7 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>) {
 function Welcome() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <img src="/icon.svg" alt="" width={72} height={72} />
+      <img src="/icon.png" alt="" width={72} height={72} />
       <h1 className="m-0 text-2xl font-semibold">{t('Welcome to MailStudio')}</h1>
       <p className="m-0 max-w-md text-muted-foreground">
         {t(

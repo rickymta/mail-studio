@@ -58,6 +58,48 @@ fn focus_main(app: &tauri::AppHandle) {
     }
 }
 
+/// Status bar (macOS) / notification area (Windows, Linux) icon: a click brings the main window
+/// back, the menu offers the same plus Quit.
+#[cfg(desktop)]
+fn install_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+    let open = MenuItemBuilder::with_id("open", "Open MailStudio").build(app)?;
+    let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+    let menu = MenuBuilder::new(app)
+        .item(&open)
+        .separator()
+        .item(&quit)
+        .build()?;
+    TrayIconBuilder::with_id("main")
+        .icon(icon)
+        // macOS draws template icons from their alpha channel alone, so the white glyph
+        // follows a light or dark menu bar by itself.
+        .icon_as_template(true)
+        .tooltip("MailStudio")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open" => focus_main(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                focus_main(tray.app_handle());
+            }
+        })
+        .build(app)?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -76,6 +118,11 @@ pub fn run() {
                 && fit_to_screen(&window).is_err()
             {
                 let _ = window.show();
+            }
+            // The app is fully usable without a tray (some Linux desktops have none).
+            #[cfg(desktop)]
+            if let Err(e) = install_tray(app.handle()) {
+                eprintln!("tray icon unavailable: {e}");
             }
             tauri::async_runtime::spawn(mailstudio_core::background_loop());
             Ok(())
