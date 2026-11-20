@@ -347,11 +347,16 @@ async fn primary_mx(domain: &str) -> Option<String> {
     preferred_mx(lines.iter().map(String::as_str))
 }
 
-/// Settings for an address. Known providers come from the presets, also when a company domain
-/// is merely hosted by one of them (seen from its MX records). For any other domain this
-/// asks, in order of trust: the domain's own autoconfig service (the convention Thunderbird
-/// introduced, which most hosting companies publish), Mozilla's public database of providers,
-/// and finally whichever of the usual host names (`imap.` / `smtp.` / `mail.`) exist in DNS.
+/// Settings for an address. Known providers come from the presets. For any other domain this
+/// asks, in order of trust:
+/// 1. the domain's own autoconfig service (the convention Thunderbird introduced, which most
+///    hosting companies publish) — the domain owner saying where the mailboxes are;
+/// 2. its MX records: a domain whose mail is delivered to Microsoft 365, Google Workspace, …
+///    gets that provider's preset. Delivery and mailboxes can differ (a filtering service in
+///    front of another host), which is why the explicit answer above wins;
+/// 3. Mozilla's public database of providers;
+/// 4. whichever of the usual host names (`imap.` / `smtp.` / `mail.`) exist in DNS.
+///
 /// Only the domain is ever sent, never the address.
 pub async fn discover(email: &str) -> serde_json::Value {
     let mut found = detect(email);
@@ -369,38 +374,36 @@ pub async fn discover(email: &str) -> serde_json::Value {
         return found;
     }
 
-    // A company domain hosted by a known provider (Microsoft 365, Google Workspace, …) is
-    // that provider's account, whatever else the domain publishes.
-    if let Some(host) = primary_mx(&domain).await
-        && let Some(preset) = by_mx(&host)
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(6))
+        .redirect(reqwest::redirect::Policy::limited(3))
+        .build()
+    else {
+        return found;
+    };
+    let path = "mail/config-v1.1.xml";
+    // Hosting companies usually point autoconfig.<domain> at a shared server whose
+    // certificate is for another name, so plain HTTP has to stay as a fallback.
+    let (own_tls, well_known, own_plain, ispdb, mx) = tokio::join!(
+        fetch_autoconfig(&client, format!("https://autoconfig.{domain}/{path}")),
+        fetch_autoconfig(
+            &client,
+            format!("https://{domain}/.well-known/autoconfig/{path}")
+        ),
+        fetch_autoconfig(&client, format!("http://autoconfig.{domain}/{path}")),
+        fetch_autoconfig(
+            &client,
+            format!("https://autoconfig.thunderbird.net/v1.1/{domain}")
+        ),
+        primary_mx(&domain),
+    );
+    let own = own_tls.or(well_known).or(own_plain);
+    if own.is_none()
+        && let Some(preset) = mx.as_deref().and_then(by_mx)
     {
         return serde_json::json!(preset);
     }
-
-    let lookup = async {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(6))
-            .redirect(reqwest::redirect::Policy::limited(3))
-            .build()
-            .ok()?;
-        let path = "mail/config-v1.1.xml";
-        // Hosting companies usually point autoconfig.<domain> at a shared server whose
-        // certificate is for another name, so plain HTTP has to stay as a fallback.
-        let (own_tls, well_known, own_plain, ispdb) = tokio::join!(
-            fetch_autoconfig(&client, format!("https://autoconfig.{domain}/{path}")),
-            fetch_autoconfig(
-                &client,
-                format!("https://{domain}/.well-known/autoconfig/{path}")
-            ),
-            fetch_autoconfig(&client, format!("http://autoconfig.{domain}/{path}")),
-            fetch_autoconfig(
-                &client,
-                format!("https://autoconfig.thunderbird.net/v1.1/{domain}")
-            ),
-        );
-        own_tls.or(well_known).or(own_plain).or(ispdb)
-    };
-    if let Some((imap, smtp)) = lookup.await {
+    if let Some((imap, smtp)) = own.or(ispdb) {
         found["imapHost"] = imap.host.into();
         found["imapPort"] = imap.port.into();
         found["imapSecurity"] = imap.security.into();
