@@ -95,7 +95,6 @@ export const vi: Record<string, string> = {
   'Gmail and Outlook can sign in through the browser instead of an app password. Each provider only allows that for an app registered with it, so you need your own client ID. Without one, use an app password.':
     'Gmail và Outlook có thể đăng nhập qua trình duyệt thay cho mật khẩu ứng dụng. Mỗi nhà cung cấp chỉ cho phép việc đó với ứng dụng đã đăng ký với họ, nên bạn cần client ID của riêng mình. Nếu chưa có, hãy dùng mật khẩu ứng dụng.',
   'Has attachments': 'Có tệp đính kèm',
-  'Hide server settings': 'Ẩn cài đặt máy chủ',
   'In Google Cloud Console create an OAuth client of type “Desktop app”, enable the Gmail API, and paste its client ID and secret here.':
     'Trong Google Cloud Console, tạo OAuth client loại “Desktop app”, bật Gmail API, rồi dán client ID và secret vào đây.',
   'In Microsoft Entra register an app with the “Mobile and desktop applications” platform and the redirect URI http://localhost, add the IMAP.AccessAsUser.All and SMTP.Send permissions, and paste its application (client) ID here. No secret is needed.':
@@ -123,8 +122,6 @@ export const vi: Record<string, string> = {
   'Message sent': 'Đã gửi thư',
   'Message source': 'Mã nguồn thư',
   Messages: 'Danh sách thư',
-  'Microsoft has turned off password sign-in for most Outlook.com accounts; use OAuth if this fails.':
-    'Microsoft đã tắt đăng nhập bằng mật khẩu với hầu hết tài khoản Outlook.com; hãy dùng OAuth nếu cách này thất bại.',
   'More actions': 'Thao tác khác',
   'Move to': 'Chuyển tới',
   'Needs an OAuth client ID, set in Settings → Sign-in (OAuth).':
@@ -197,7 +194,6 @@ export const vi: Record<string, string> = {
   Settings: 'Cài đặt',
   'Show images': 'Hiện ảnh',
   'Show more': 'Hiện thêm',
-  'Show server settings': 'Hiện cài đặt máy chủ',
   'Shown to the people you write to': 'Hiển thị với người nhận thư của bạn',
   'Sign in again': 'Đăng nhập lại',
   'Sign in in the browser': 'Đăng nhập trong trình duyệt',

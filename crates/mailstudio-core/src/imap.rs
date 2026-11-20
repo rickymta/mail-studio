@@ -133,6 +133,7 @@ async fn open(account: &Account, cred: &Credential) -> Result<Session> {
     };
 
     let user = account.username.trim();
+    let oauth = matches!(cred, Credential::OAuth(_));
     let login = match cred {
         Credential::Password(p) => client.login(user, p).await,
         Credential::OAuth(token) => {
@@ -147,12 +148,33 @@ async fn open(account: &Account, cred: &Credential) -> Result<Session> {
         }
     };
     login.map_err(|(e, _)| match e {
-        async_imap::error::Error::No(m) | async_imap::error::Error::Bad(m) => Error::Auth(format!(
-            "{host} refused the sign-in for {user}: {}",
-            m.trim()
-        )),
+        async_imap::error::Error::No(m) | async_imap::error::Error::Bad(m) => Error::Auth(
+            sign_in_refused(host, user, &crate::error::server_text(&m), oauth),
+        ),
         other => other.into(),
     })
+}
+
+/// Explain a refused sign-in in terms of what the user can do about it.
+pub fn sign_in_refused(host: &str, user: &str, said: &str, oauth: bool) -> String {
+    let lower = said.to_lowercase();
+    if !oauth && (lower.contains("basic authentication is disabled") || lower.contains("basicauth"))
+    {
+        return format!(
+            "{host} no longer accepts passwords. Choose the provider “Outlook / Microsoft 365” \
+             and sign in with Microsoft (OAuth) instead."
+        );
+    }
+    if oauth {
+        return format!(
+            "{host} refused the sign-in for {user}. IMAP may be turned off for this mailbox, \
+             or the browser sign-in was made with a different account. (The server said: {said})"
+        );
+    }
+    format!(
+        "{host} did not accept the user name or password for {user}. Check both; many \
+         providers want an app password instead of the normal one. (The server said: {said})"
+    )
 }
 
 async fn greeting<T>(client: &mut async_imap::Client<T>, host: &str) -> Result<()>

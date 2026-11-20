@@ -18,6 +18,8 @@ pub struct Provider {
     pub smtp_security: &'static str,
     /// `google` / `microsoft` when the provider offers OAuth sign-in, else ``.
     pub oauth: &'static str,
+    /// The provider no longer accepts any password over IMAP / SMTP: OAuth is the only way in.
+    pub oauth_only: bool,
     /// The provider refuses the normal account password over IMAP.
     pub password_is_app_password: bool,
     /// Where the user creates an app password or enables IMAP.
@@ -45,6 +47,7 @@ const fn p(
         smtp_port,
         smtp_security: if smtp_port == 465 { "tls" } else { "starttls" },
         oauth: "",
+        oauth_only: false,
         password_is_app_password: true,
         help_url: "",
         saves_sent: false,
@@ -67,6 +70,7 @@ pub const PROVIDERS: &[Provider] = &[
     },
     Provider {
         oauth: "microsoft",
+        oauth_only: true,
         help_url: "https://support.microsoft.com/account-billing/5896ed9b-4263-e681-128a-a6f2979a7944",
         saves_sent: true,
         ..p(
@@ -283,7 +287,68 @@ async fn first_resolving(hosts: [String; 2]) -> Option<String> {
     a.or(b)
 }
 
-/// Settings for an address. Known providers come from the presets. For any other domain this
+/// Mail-exchanger suffixes that give away who hosts a domain's mailboxes.
+const MX_HOSTS: &[(&str, &str)] = &[
+    ("mail.protection.outlook.com", "outlook"),
+    ("olc.protection.outlook.com", "outlook"),
+    ("google.com", "gmail"),
+    ("googlemail.com", "gmail"),
+    ("zoho.com", "zoho"),
+    ("yandex.net", "yandex"),
+    ("yandex.ru", "yandex"),
+    ("messagingengine.com", "fastmail"),
+    ("yahoodns.net", "yahoo"),
+    ("mail.icloud.com", "icloud"),
+    ("mail.ru", "mailru"),
+];
+
+/// The preset of the provider that runs the mail exchanger `host`.
+fn by_mx(host: &str) -> Option<&'static Provider> {
+    let host = host.trim_end_matches('.').to_lowercase();
+    MX_HOSTS
+        .iter()
+        .find(|(suffix, _)| host == *suffix || host.ends_with(&format!(".{suffix}")))
+        .and_then(|(_, id)| by_id(id))
+}
+
+/// Pick the preferred exchanger out of MX records printed in zone-file form
+/// (`name ttl class MX preference exchange`).
+fn preferred_mx<'a>(records: impl Iterator<Item = &'a str>) -> Option<String> {
+    records
+        .filter_map(|line| {
+            let mut tail = line.split_whitespace().rev();
+            let host = tail.next()?;
+            let preference: u16 = tail.next()?.parse().ok()?;
+            Some((preference, host.to_string()))
+        })
+        .min()
+        .map(|(_, host)| host)
+}
+
+/// The domain's most preferred mail exchanger, from DNS.
+async fn primary_mx(domain: &str) -> Option<String> {
+    let resolver = hickory_resolver::Resolver::builder_tokio()
+        .ok()?
+        .build()
+        .ok()?;
+    let lookup = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        resolver.mx_lookup(format!("{domain}.")),
+    )
+    .await
+    .ok()?
+    .ok()?;
+    let lines: Vec<String> = lookup
+        .answers()
+        .iter()
+        .filter(|r| r.record_type() == hickory_resolver::proto::rr::RecordType::MX)
+        .map(|r| r.to_string())
+        .collect();
+    preferred_mx(lines.iter().map(String::as_str))
+}
+
+/// Settings for an address. Known providers come from the presets, also when a company domain
+/// is merely hosted by one of them (seen from its MX records). For any other domain this
 /// asks, in order of trust: the domain's own autoconfig service (the convention Thunderbird
 /// introduced, which most hosting companies publish), Mozilla's public database of providers,
 /// and finally whichever of the usual host names (`imap.` / `smtp.` / `mail.`) exist in DNS.
@@ -302,6 +367,14 @@ pub async fn discover(email: &str) -> serde_json::Value {
             .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-');
     if found["id"] != "custom" || !email.contains('@') || !plausible {
         return found;
+    }
+
+    // A company domain hosted by a known provider (Microsoft 365, Google Workspace, …) is
+    // that provider's account, whatever else the domain publishes.
+    if let Some(host) = primary_mx(&domain).await
+        && let Some(preset) = by_mx(&host)
+    {
+        return serde_json::json!(preset);
     }
 
     let lookup = async {
@@ -353,6 +426,21 @@ pub async fn discover(email: &str) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mail_exchangers_reveal_the_host() {
+        let records = [
+            "example.vn. 3600 IN MX 10 backup.hosting.vn.",
+            "example.vn. 3600 IN MX 0 example-vn.mail.protection.outlook.com.",
+        ];
+        let host = preferred_mx(records.into_iter()).unwrap();
+        assert_eq!(host, "example-vn.mail.protection.outlook.com.");
+        assert_eq!(by_mx(&host).unwrap().id, "outlook");
+        assert_eq!(by_mx("ASPMX.L.GOOGLE.COM.").unwrap().id, "gmail");
+        assert!(by_mx("backup.hosting.vn.").is_none());
+        assert!(by_mx("notgoogle.com").is_none());
+        assert!(by_id("outlook").unwrap().oauth_only);
+    }
 
     #[test]
     fn reads_autoconfig_documents() {

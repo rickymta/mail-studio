@@ -87,10 +87,47 @@ impl From<async_imap::error::Error> for Error {
             E::ConnectionLost => {
                 Error::Network("The connection to the mail server was lost".into())
             }
-            E::No(m) | E::Bad(m) => Error::Imap(m),
+            E::No(m) | E::Bad(m) => Error::Imap(server_text(&m)),
             other => Error::Imap(other.to_string()),
         }
     }
 }
 
+/// What the server actually said. async-imap hands refusals over as debug output
+/// (`code: None, info: Some("Basic authentication is disabled.")`); only the sentence
+/// inside is meant for people.
+pub fn server_text(raw: &str) -> String {
+    let said = raw
+        .split_once("info: Some(\"")
+        .and_then(|(_, rest)| rest.rsplit_once("\")"))
+        .map(|(text, _)| text.replace("\\\"", "\"").replace("\\\\", "\\"));
+    match said {
+        Some(text) if !text.trim().is_empty() => text.trim().to_string(),
+        _ if raw.contains("info: None") => "the server gave no reason".to_string(),
+        _ => raw.trim().to_string(),
+    }
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use super::server_text;
+
+    #[test]
+    fn keeps_only_what_the_server_said() {
+        assert_eq!(
+            server_text("code: None, info: Some(\"Basic authentication is disabled.\")"),
+            "Basic authentication is disabled."
+        );
+        assert_eq!(
+            server_text("code: Some(AuthenticationFailed), info: Some(\"Invalid \\\"creds\\\"\")"),
+            "Invalid \"creds\""
+        );
+        assert_eq!(
+            server_text("code: None, info: None"),
+            "the server gave no reason"
+        );
+        assert_eq!(server_text("LOGIN failed"), "LOGIN failed");
+    }
+}

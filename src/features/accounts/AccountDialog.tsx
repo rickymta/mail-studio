@@ -65,9 +65,10 @@ function applyProvider(form: AccountInput, p: Provider): AccountInput {
     smtpHost: p.smtpHost,
     smtpPort: p.smtpPort,
     smtpSecurity: p.smtpSecurity,
-    // Password sign-in stays the default: OAuth needs a client ID the user must set up first.
-    auth: 'password',
-    oauthProvider: '',
+    // Password sign-in stays the default where it still works: OAuth needs a client ID the
+    // user must set up first.
+    auth: p.oauthOnly ? 'oauth' : 'password',
+    oauthProvider: p.oauthOnly ? p.oauth : '',
   };
 }
 
@@ -132,7 +133,6 @@ function Form({ existing }: { existing: Account | null }) {
   );
   const [password, setPassword] = useState('');
   const [oauthFlow, setOauthFlow] = useState('');
-  const [advanced, setAdvanced] = useState(!!existing);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   // Once the user edits the servers by hand, typing in the address must not overwrite them.
   const manual = useRef(!!existing);
@@ -149,7 +149,6 @@ function Form({ existing }: { existing: Account | null }) {
         (p) => {
           if (!live || manual.current) return;
           setForm((f) => applyProvider(f, p));
-          if (p.id === 'custom') setAdvanced(true);
         },
         () => {},
       );
@@ -296,7 +295,6 @@ function Form({ existing }: { existing: Account | null }) {
                   ? { ...f, provider: 'custom', auth: 'password', oauthProvider: '' }
                   : applyProvider(f, p),
               );
-              if (p.id === 'custom') setAdvanced(true);
             }}
           >
             {providers.map((p) => (
@@ -307,7 +305,7 @@ function Form({ existing }: { existing: Account | null }) {
           </Select>
         </Field>
 
-        {provider?.oauth && (
+        {provider?.oauth && !provider.oauthOnly && (
           <div className="flex gap-4 text-sm" role="radiogroup" aria-label={t('Sign-in method')}>
             <label className="flex items-center gap-2">
               <input
@@ -343,8 +341,6 @@ function Form({ existing }: { existing: Account | null }) {
                     '{provider} does not accept your normal password here: create an app password in your account’s security settings.',
                     { provider: provider.name },
                   )}
-                {provider?.id === 'outlook' &&
-                  ` ${t('Microsoft has turned off password sign-in for most Outlook.com accounts; use OAuth if this fails.')}`}
                 {provider?.helpUrl && (
                   <button
                     type="button"
@@ -377,15 +373,8 @@ function Form({ existing }: { existing: Account | null }) {
           </div>
         )}
 
-        <button
-          type="button"
-          aria-expanded={advanced}
-          className="self-start text-xs text-accent underline"
-          onClick={() => setAdvanced(!advanced)}
-        >
-          {advanced ? t('Hide server settings') : t('Show server settings')}
-        </button>
-        {advanced && (
+        {/* Presets carry their servers; only a server MailStudio does not know needs them typed. */}
+        {form.provider === 'custom' && (
           <div
             className="flex flex-col gap-3 rounded-md border border-border p-3"
             onChange={() => (manual.current = true)}

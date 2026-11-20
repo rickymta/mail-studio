@@ -39,6 +39,8 @@ export interface Provider {
   smtpSecurity: Security;
   /** `google` / `microsoft` when OAuth sign-in exists, else empty. */
   oauth: string;
+  /** No password works over IMAP / SMTP any more: OAuth is the only sign-in. */
+  oauthOnly: boolean;
   passwordIsAppPassword: boolean;
   helpUrl: string;
   savesSent: boolean;

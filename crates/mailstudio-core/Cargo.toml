@@ -13,6 +13,7 @@ async-imap = { version = "0.12", default-features = false, features = ["runtime-
 base64.workspace = true
 dirs.workspace = true
 futures = "0.3"
+hickory-resolver = "0.26.3"
 keyring.workspace = true
 lettre = { version = "0.11.24", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 mail-parser = "0.11.9"
