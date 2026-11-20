@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  # No push / pull_request triggers: Actions only run when a release tag is pushed
+  # (release.yml calls this workflow on the tagged commit), or by hand.
+  workflow_dispatch:
+  # The release workflow runs the whole suite on the tagged commit before building.
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Commit / tag to test (default: the ref of the event)'
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Version in tauri.conf.json, package.json and Cargo.toml must stay identical (scripts/release.mjs).
+  version-sync:
+    name: Version files in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          # Node only (no pnpm here): setup-node v5 would auto-enable the pnpm cache from
+          # package.json "packageManager" and fail without pnpm installed.
+          package-manager-cache: false
+      - run: node scripts/release.mjs --check
+
+  check:
+    name: Check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        # bash on every OS (Git Bash on Windows) so cargo output can be teed into check.log.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Install Linux dependencies for Tauri 2
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev build-essential curl wget file
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      # The Tauri crate embeds ../dist at compile time, so build the frontend first.
+      - run: pnpm build
+      - run: cargo fmt --all -- --check
+      # Every feature on (dev-bridge included) so the debug bridge keeps compiling.
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings 2>&1 | tee -a check.log
+      # --no-fail-fast: see every failing crate in one run, not only the first.
+      - run: cargo test --workspace --no-fail-fast 2>&1 | tee -a check.log
+
+      - name: Summarize failures
+        if: failure()
+        run: |
+          "$BASH" .github/scripts/annotate-failures.sh check.log "check (${{ matrix.os }})"

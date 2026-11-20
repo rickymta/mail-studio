@@ -1,0 +1,297 @@
+name: Release
+
+# Phát hành khi đẩy tag vX.Y.Z (hoặc vX.Y.Z-beta.1) nằm trên nhánh main. Chạy lại cho tag đã có:
+# Actions > Release > Run workflow.
+# Luồng: prepare (kiểm tag + version, tag phải nằm trên main) -> test (toàn bộ CI: lint, unit, clippy,
+#        test Rust trên 3 hệ điều hành) -> draft (tạo release DRAFT) -> build (4 nền tảng, upload vào
+#        draft) -> publish (SHA256SUMS.txt, chuyển draft thành published). Test lỗi thì không build,
+#        không tạo release; build lỗi thì release giữ nguyên DRAFT.
+# Tạo tag: `pnpm release patch|minor|major|x.y.z` (bump version 3 file + CHANGELOG + commit + tag).
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag đã có cần phát hành lại (vd. v0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Resolve tag
+        id: meta
+        run: |
+          tag="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$tag' không đúng dạng vX.Y.Z hoặc vX.Y.Z-pre."
+            exit 1
+          fi
+          version="${tag#v}"
+          prerelease=false
+          if [[ "$version" == *-* ]]; then prerelease=true; fi
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ steps.meta.outputs.tag }}
+          # Full history: the "tag must be on main" check walks the ancestry.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Check version in tag matches the 3 version files
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: node scripts/release.mjs --check "$VERSION"
+
+      - name: Tag must be on main
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "refs/tags/$TAG" FETCH_HEAD; then
+            echo "::error::Tag $TAG không nằm trên nhánh main: chỉ phát hành từ main."
+            exit 1
+          fi
+
+  # Toàn bộ CI trên đúng commit của tag. Không qua thì không build.
+  test:
+    name: Test
+    needs: prepare
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: refs/tags/${{ needs.prepare.outputs.tag }}
+
+  draft:
+    name: Create draft release
+    needs: [prepare, test]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+
+      - name: Create (or reset) draft release
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+        run: |
+          # Release notes: mục của version trong CHANGELOG.md nếu có, không thì tự sinh.
+          notes_args=(--generate-notes)
+          if [ -f CHANGELOG.md ]; then
+            awk -v v="$VERSION" '
+              /^## / { if (found) exit; if ($0 ~ "^## \\[?v?" v "\\]?([ ]|$)") { found=1; next } }
+              found { print }
+            ' CHANGELOG.md > notes.md
+            if [ -s notes.md ] && grep -q '[^[:space:]]' notes.md; then
+              notes_args=(--notes-file notes.md)
+            fi
+          fi
+          flags=()
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG đã có: đưa về draft để chạy lại."
+            gh release edit "$TAG" --draft=true --prerelease="$PRERELEASE"
+          else
+            gh release create "$TAG" --draft --verify-tag --title "MailStudio $TAG" "${notes_args[@]}" "${flags[@]}"
+          fi
+
+  build:
+    name: Build (${{ matrix.label }})
+    needs: [prepare, draft]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Hai bản macOS riêng thay vì universal: build nhanh hơn, dmg nhỏ hơn đúng kiến trúc.
+          - label: macos-aarch64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg
+          - label: macos-x64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            bundles: dmg
+          - label: windows-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: msi,nsis
+          # ubuntu-22.04 (không phải latest) để glibc cũ, bản dựng chạy được trên nhiều distro.
+          - label: linux-x64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,rpm,appimage
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+
+      - name: Install Linux dependencies for Tauri 2
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev build-essential curl wget file
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # Ký Windows (tuỳ chọn): chỉ khi có secret WINDOWS_CERTIFICATE (pfx base64).
+      - name: Import Windows code signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:WINDOWS_CERTIFICATE)) {
+            Write-Host 'Không có WINDOWS_CERTIFICATE: build không ký.'
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $pw = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pw
+          Remove-Item $pfx
+          $cfg = @{ bundle = @{ windows = @{
+            certificateThumbprint = $cert.Thumbprint
+            digestAlgorithm = 'sha256'
+            timestampUrl = 'http://timestamp.digicert.com'
+          } } } | ConvertTo-Json -Depth 5
+          $cfgPath = Join-Path $env:RUNNER_TEMP 'tauri-sign.conf.json'
+          Set-Content -Path $cfgPath -Value $cfg
+          "TAURI_SIGN_CONFIG=$cfgPath" >> $env:GITHUB_ENV
+
+      - name: Build bundles
+        env:
+          # Secret ký số: tất cả tuỳ chọn. Secret không có thì biến rỗng và bị unset ở dưới.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID \
+                   APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!v}" ]; then unset "$v"; fi
+          done
+          # Ký + notarize macOS cần đủ bộ; thiếu một phần thì bỏ hết để build không ký thay vì lỗi giữa chừng.
+          if [ -z "${APPLE_CERTIFICATE:-}" ] || [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ] || [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY
+          fi
+          if [ -z "${APPLE_ID:-}" ] || [ -z "${APPLE_PASSWORD:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ]; then
+            unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+          fi
+          args=(--target "${{ matrix.target }}" --bundles "${{ matrix.bundles }}")
+          if [ -n "${TAURI_SIGN_CONFIG:-}" ]; then args+=(--config "$TAURI_SIGN_CONFIG"); fi
+          pnpm tauri build "${args[@]}"
+
+      - name: Collect and upload artifacts
+        run: |
+          bundle="target/${{ matrix.target }}/release/bundle"
+          out="release-assets"
+          mkdir -p "$out"
+          copy() { # copy <glob-dir> <pattern> <suffix>
+            local f
+            for f in "$bundle/$1"/$2; do
+              [ -f "$f" ] || continue
+              cp "$f" "$out/MailStudio_${VERSION}_${{ matrix.label }}$3"
+              echo "  $f -> MailStudio_${VERSION}_${{ matrix.label }}$3"
+            done
+          }
+          case "${{ matrix.label }}" in
+            macos-*)   copy dmg '*.dmg' .dmg ;;
+            windows-*) copy msi '*.msi' .msi; copy nsis '*-setup.exe' -setup.exe ;;
+            linux-*)   copy deb '*.deb' .deb; copy rpm '*.rpm' .rpm; copy appimage '*.AppImage' .AppImage ;;
+          esac
+          expected=$(echo "${{ matrix.bundles }}" | tr ',' '\n' | wc -l)
+          actual=$(ls "$out" | wc -l)
+          if [ "$actual" -ne "$expected" ]; then
+            echo "::error::Mong đợi $expected file cài đặt, thu được $actual:"
+            ls -la "$bundle"/* || true
+            exit 1
+          fi
+          gh release upload "$TAG" "$out"/* --clobber
+
+  publish:
+    name: Publish release
+    needs: [prepare, draft, build]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+    steps:
+      - name: Generate SHA256SUMS.txt
+        run: |
+          mkdir assets && cd assets
+          gh release download "$TAG" --pattern '*' --skip-existing
+          rm -f SHA256SUMS.txt
+          [ -n "$(ls)" ] || { echo "::error::Release không có asset nào."; exit 1; }
+          sha256sum * | tee SHA256SUMS.txt
+          gh release upload "$TAG" SHA256SUMS.txt --clobber
+
+      - name: Publish (draft -> published)
+        run: |
+          flags=(--draft=false --prerelease="$PRERELEASE")
+          if [ "$PRERELEASE" = true ]; then flags+=(--latest=false); else flags+=(--latest); fi
+          gh release edit "$TAG" "${flags[@]}"

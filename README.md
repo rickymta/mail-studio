@@ -45,6 +45,8 @@ pnpm check:version            # kiểm tra 3 file phiên bản khớp nhau
 
 Script tăng phiên bản đồng bộ ở `package.json`, `Cargo.toml` và `src-tauri/tauri.conf.json`, ghi `CHANGELOG.md` từ lịch sử commit, tạo commit `chore(release): vX.Y.Z` và tag — không tự push.
 
+Đẩy tag `vX.Y.Z` lên GitHub sẽ chạy workflow **Release** (`.github/workflows/release.yml`): kiểm tra phiên bản, chạy toàn bộ CI trên Windows/macOS/Linux, rồi build bản cài đặt cho 4 nền tảng (dmg cho macOS Apple Silicon và Intel, msi + exe cho Windows, deb/rpm/AppImage cho Linux) và đăng lên GitHub Releases kèm `SHA256SUMS.txt`. Bản build chưa ký số trừ khi cấu hình secret chứng thư.
+
 ## Chạy thử
 
 Cần Rust (≥ 1.90), Node.js và pnpm.
