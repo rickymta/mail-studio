@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Field, Input, Modal, Select, Spinner, Textarea, cn } from '@/components/ui';
 import { t, useLang } from '@/lib/i18n';
 import { api, type AccountInput } from '@/lib/ipc';
+import { OAUTH } from '@/features/settings/oauthSetup';
 import { openUrl } from '@/lib/native';
 import type { Account, Provider, Security } from '@/lib/types';
 import { useMail } from '@/stores/mail';
@@ -163,6 +164,35 @@ function Form({ existing }: { existing: Account | null }) {
     password: form.auth === 'password' ? password : undefined,
     oauthFlow: form.auth === 'oauth' ? oauthFlow : undefined,
   });
+
+  // Browser sign-in needs a client ID registered with the provider; ask for it right here
+  // instead of sending the user off to Settings. `null` = not known yet.
+  const [clientIds, setClientIds] = useState<Record<string, boolean> | null>(null);
+  const [clientId, setClientId] = useState('');
+  useEffect(() => {
+    api.settings().then(
+      (s) =>
+        setClientIds(
+          Object.fromEntries(OAUTH.map((o) => [o.id, !!String(s[`oauth.${o.id}.clientId`] ?? '')])),
+        ),
+      () => setClientIds({}),
+    );
+  }, []);
+  const setup =
+    form.auth === 'oauth' && clientIds && !clientIds[provider?.oauth ?? '']
+      ? OAUTH.find((o) => o.id === provider?.oauth)
+      : undefined;
+  const saveClientId = async () => {
+    if (!setup) return;
+    try {
+      await api.setSettings({ [`oauth.${setup.id}.clientId`]: clientId.trim() });
+      setClientIds({ ...clientIds, [setup.id]: true });
+      setClientId('');
+      setStatus({ kind: 'idle' });
+    } catch (e) {
+      toastError(t('Could not save the setting'), e);
+    }
+  };
 
   const signIn = async () => {
     if (!provider?.oauth) return;
@@ -356,6 +386,39 @@ function Form({ existing }: { existing: Account | null }) {
           >
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
+        ) : setup ? (
+          <div className="flex flex-col gap-2 rounded-md border border-border bg-surface-muted p-3">
+            <div className="font-medium">
+              {t('{provider} sign-in needs a one-time setup', { provider: setup.name })}
+            </div>
+            <p className="m-0 text-xs text-muted-foreground">
+              {t(
+                '{provider} only lets registered apps read mail, and MailStudio does not ship with a registration. Register one yourself (free, a few minutes):',
+                { provider: setup.name },
+              )}{' '}
+              {setup.steps()}
+            </p>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 self-start text-xs text-accent underline"
+              onClick={() => void openUrl(setup.console)}
+            >
+              {t('Open the provider’s page')}
+              <ExternalLink className="size-3" />
+            </button>
+            <div className="flex items-end gap-2">
+              <Field label={t('Client ID')} className="flex-1">
+                <Input
+                  spellCheck={false}
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                />
+              </Field>
+              <Button disabled={!clientId.trim()} onClick={() => void saveClientId()}>
+                {t('Save')}
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="flex items-center gap-3 rounded-md border border-border bg-surface-muted p-3">
             <Button disabled={busy || !form.email.includes('@')} onClick={() => void signIn()}>
@@ -368,7 +431,7 @@ function Form({ existing }: { existing: Account | null }) {
                   ? t(
                       'Already signed in. Sign in again only if the sync reports a sign-in problem.',
                     )
-                  : t('Needs an OAuth client ID, set in Settings → Sign-in (OAuth).')}
+                  : t('Your browser opens for the sign-in; come back here afterwards.')}
             </span>
           </div>
         )}
@@ -474,13 +537,15 @@ function Form({ existing }: { existing: Account | null }) {
             <XCircle className="mt-0.5 size-4 shrink-0 text-danger" />
             <div className="min-w-0 flex-1">
               <div className="selectable break-words">{status.message}</div>
-              <button
-                type="button"
-                className="mt-1 text-xs underline"
-                onClick={() => void save(true)}
-              >
-                {t('Save without testing')}
-              </button>
+              {canSubmit && (
+                <button
+                  type="button"
+                  className="mt-1 text-xs underline"
+                  onClick={() => void save(true)}
+                >
+                  {t('Save without testing')}
+                </button>
+              )}
             </div>
           </div>
         )}

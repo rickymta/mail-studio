@@ -7,6 +7,8 @@ import { api } from '@/lib/ipc';
 import { accountColor, useMail } from '@/stores/mail';
 import { toast, toastError, useUi, type Theme } from '@/stores/ui';
 
+import { OAUTH } from './oauthSetup';
+
 type Tab = 'general' | 'accounts' | 'oauth' | 'about';
 
 const INTERVALS = [1, 5, 15, 30, 60];
@@ -123,25 +125,6 @@ function Accounts() {
     </div>
   );
 }
-
-const OAUTH = [
-  {
-    id: 'google',
-    name: 'Google',
-    steps: () =>
-      t(
-        'In Google Cloud Console create an OAuth client of type “Desktop app”, enable the Gmail API, and paste its client ID and secret here.',
-      ),
-  },
-  {
-    id: 'microsoft',
-    name: 'Microsoft',
-    steps: () =>
-      t(
-        'In Microsoft Entra register an app with the “Mobile and desktop applications” platform and the redirect URI http://localhost, add the IMAP.AccessAsUser.All and SMTP.Send permissions, and paste its application (client) ID here. No secret is needed.',
-      ),
-  },
-];
 
 function OAuth({
   settings,

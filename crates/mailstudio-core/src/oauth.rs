@@ -55,7 +55,7 @@ fn client(provider: &str) -> Result<(String, Option<String>)> {
         .ok_or_else(|| {
             Error::invalid(
                 "No OAuth client ID is configured for this provider. Add one in Settings → \
-                 Sign-in (OAuth), or use an app password instead.",
+                 Sign-in (OAuth).",
             )
         })?;
     let secret = secrets::get(&secrets::client_secret_key(provider))?.filter(|v| !v.is_empty());

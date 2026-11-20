@@ -124,8 +124,11 @@ export const vi: Record<string, string> = {
   Messages: 'Danh sách thư',
   'More actions': 'Thao tác khác',
   'Move to': 'Chuyển tới',
-  'Needs an OAuth client ID, set in Settings → Sign-in (OAuth).':
-    'Cần OAuth client ID, thiết lập trong Cài đặt → Đăng nhập (OAuth).',
+  'Your browser opens for the sign-in; come back here afterwards.':
+    'Trình duyệt sẽ mở để đăng nhập; xong thì quay lại đây.',
+  '{provider} sign-in needs a one-time setup': 'Đăng nhập {provider} cần thiết lập một lần',
+  '{provider} only lets registered apps read mail, and MailStudio does not ship with a registration. Register one yourself (free, a few minutes):':
+    '{provider} chỉ cho ứng dụng đã đăng ký đọc thư, và MailStudio không kèm sẵn đăng ký nào. Hãy tự đăng ký một ứng dụng (miễn phí, mất vài phút):',
   'New folder': 'Thư mục mới',
   'New folder in {name}': 'Thư mục mới trong {name}',
   'New folder…': 'Thư mục mới…',
