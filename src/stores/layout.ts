@@ -4,7 +4,6 @@ export interface LayoutPrefs {
   sidebar: number;
   list: number;
   listHeight: number;
-  attachments: number;
   rowHeight: number;
   mode: 'columns' | 'rows';
 }
@@ -12,7 +11,6 @@ export const DEFAULT_LAYOUT: LayoutPrefs = {
   sidebar: 232,
   list: 360,
   listHeight: 42,
-  attachments: 180,
   rowHeight: 88,
   mode: 'columns',
 };
@@ -26,7 +24,6 @@ export function normalizeLayout(value: Partial<LayoutPrefs>): LayoutPrefs {
     sidebar: number('sidebar', 180, 400),
     list: number('list', 280, 720),
     listHeight: number('listHeight', 25, 70),
-    attachments: number('attachments', 100, 400),
     rowHeight: number('rowHeight', 80, 128),
     mode: value.mode === 'rows' ? 'rows' : 'columns',
   };

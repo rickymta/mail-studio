@@ -49,6 +49,8 @@ export interface Prefs {
   remoteImages: boolean;
   /** Opening a message marks it read. */
   markReadOnOpen: boolean;
+  /** With the dark theme, show HTML messages on a dark background too. */
+  darkMessages: boolean;
 }
 
 const PREFS_KEY = 'mailstudio.prefs';
@@ -57,6 +59,7 @@ const DEFAULT_PREFS: Prefs = {
   notifications: true,
   remoteImages: false,
   markReadOnOpen: true,
+  darkMessages: true,
 };
 
 function loadPrefs(): Prefs {

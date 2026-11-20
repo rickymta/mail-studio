@@ -1,19 +1,15 @@
 import {
   Download,
   ExternalLink,
-  Eye,
   File,
   FileImage,
   FileText,
   Film,
   Music,
   Paperclip,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Button, IconButton, Modal, Spinner, cn } from '@/components/ui';
-import { ResizeHandle } from '@/components/ResizeHandle';
 import { formatSize } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { api, isTauri } from '@/lib/ipc';
@@ -26,7 +22,6 @@ import {
   type PreviewKind,
 } from '@/lib/preview';
 import type { AttachmentInfo, Detail } from '@/lib/types';
-import { DEFAULT_LAYOUT, useLayout } from '@/stores/layout';
 import { toast, toastError } from '@/stores/ui';
 
 const PdfPreview = lazy(() => import('./PdfPreview'));
@@ -208,97 +203,61 @@ function Preview({ id, file, onClose }: { id: number; file: AttachmentInfo; onCl
     </Modal>
   );
 }
+/** A slim strip under the message: one chip per attached file. */
 export function Attachments({ m }: { m: Detail }) {
   const files = m.attachments.filter((a) => !a.inline);
-  const height = useLayout((s) => s.prefs.attachments);
-  const update = useLayout((s) => s.update);
-  const [collapsed, setCollapsed] = useState(false);
   const [selected, setSelected] = useState<AttachmentInfo | null>(null);
   if (!files.length) return null;
   return (
     <>
-      {!collapsed && (
-        <ResizeHandle
-          axis="y"
-          reverse
-          label={t('Attachment panel height')}
-          value={height}
-          min={100}
-          max={400}
-          onChange={(attachments) => update({ attachments })}
-          onReset={() => update({ attachments: DEFAULT_LAYOUT.attachments })}
-        />
-      )}
       <section
         aria-label={t('Attachments')}
-        className="flex shrink-0 flex-col border-t border-border bg-surface"
-        style={{ height: collapsed ? 44 : height, maxHeight: collapsed ? undefined : '45%' }}
+        className="flex max-h-24 shrink-0 items-start gap-2 overflow-y-auto border-t border-border bg-surface px-4 py-2"
       >
-        <header className="flex h-11 shrink-0 items-center gap-2 px-4">
-          <Paperclip className="size-4 text-accent" />
-          <h3 className="m-0 text-sm font-semibold">{t('{n} attachments', { n: files.length })}</h3>
-          <span className="text-xs text-muted-foreground">
-            {formatSize(files.reduce((sum, a) => sum + a.size, 0))}
-          </span>
-          <span className="flex-1" />
-          <IconButton
-            label={collapsed ? t('Expand attachments') : t('Collapse attachments')}
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-          </IconButton>
-        </header>
-        {!collapsed && (
-          <div className="attachment-grid min-h-0 overflow-y-auto px-4 pb-3">
-            {files.map((a) => {
-              const type = previewType(a.name, a.mime);
-              const Icon = type ? icons[type.kind] : File;
-              const previewable = type !== null && a.size <= PREVIEW_LIMIT;
-              return (
-                <article
-                  key={a.index}
-                  className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/50"
+        <span
+          className="flex h-8 shrink-0 items-center gap-1.5 text-xs text-muted-foreground"
+          title={formatSize(files.reduce((sum, a) => sum + a.size, 0))}
+        >
+          <Paperclip className="size-3.5" />
+          {files.length}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+          {files.map((a) => {
+            const type = previewType(a.name, a.mime);
+            const Icon = type ? icons[type.kind] : File;
+            return (
+              <div
+                key={a.index}
+                className="flex h-8 max-w-72 min-w-0 items-center rounded-md border border-border bg-background text-xs hover:border-accent/60"
+              >
+                <button
+                  type="button"
+                  title={`${a.name} · ${formatSize(a.size)}`}
+                  onClick={() => setSelected(a)}
+                  className="flex h-full min-w-0 items-center gap-2 rounded-l-md pr-1 pl-2 hover:bg-surface-hover"
                 >
-                  <div
+                  <span
                     className={cn(
-                      'flex size-10 shrink-0 items-center justify-center rounded-lg',
+                      'flex size-5 shrink-0 items-center justify-center rounded',
                       type ? colors[type.kind] : 'bg-surface-muted text-muted-foreground',
                     )}
                   >
-                    <Icon className="size-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={() => setSelected(a)}
-                      title={a.name}
-                      className="block w-full text-left text-sm font-medium break-all hover:text-accent"
-                    >
-                      {a.name}
-                    </button>
-                    <p className="m-0 mt-1 truncate text-xs text-muted-foreground" title={a.mime}>
-                      {a.name.split('.').pop()?.toUpperCase()} · {formatSize(a.size)}
-                    </p>
-                    <button
-                      type="button"
-                      className="mt-1 inline-flex items-center gap-1 text-xs text-accent hover:underline"
-                      onClick={() => setSelected(a)}
-                    >
-                      <Eye className="size-3" />
-                      {previewable ? t('Preview') : t('File details')}
-                    </button>
-                  </div>
-                  <IconButton
-                    label={t('Save {name}', { name: a.name })}
-                    onClick={() => void saveAttachment(m.id, a)}
-                  >
-                    <Download className="size-4" />
-                  </IconButton>
-                </article>
-              );
-            })}
-          </div>
-        )}
+                    <Icon className="size-3.5" />
+                  </span>
+                  <span className="truncate font-medium">{a.name}</span>
+                  <span className="shrink-0 text-muted-foreground">{formatSize(a.size)}</span>
+                </button>
+                <IconButton
+                  label={t('Save {name}', { name: a.name })}
+                  className="size-7 shrink-0"
+                  onClick={() => void saveAttachment(m.id, a)}
+                >
+                  <Download className="size-3.5" />
+                </IconButton>
+              </div>
+            );
+          })}
+        </div>
       </section>
       {selected && (
         <Preview

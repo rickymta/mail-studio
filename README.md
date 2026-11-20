@@ -33,6 +33,7 @@ khác. Viết bằng Rust + Tauri 2, chạy trên Windows, macOS và Linux.
 - **Ctrl + / Ctrl - / Ctrl 0** phóng to, thu nhỏ, đặt lại cỡ giao diện (60–200%).
 - Các phím **F1–F12** và **Ctrl+R** không còn kích hoạt hành vi mặc định của webview (F5 tải lại ứng dụng, F3 tìm kiếm, F12 công cụ nhà phát triển…).
 - Xem trước tệp đính kèm ngay trong ứng dụng: ảnh, văn bản, âm thanh, video và PDF (tối đa 20 MB).
+- Với giao diện tối, nội dung thư HTML cũng được đổi sang nền tối (nền sáng và chữ tối được đổi màu, hình ảnh giữ nguyên); tắt được trong Cài đặt. Ảnh bị chặn hiển thị bằng biểu tượng loại tệp (Excel, Word, PDF…) suy ra từ liên kết bên cạnh.
 - Nhấn **phiên bản** để xem thông tin ứng dụng và thư mục dữ liệu. Chưa có kiểm tra/cài đặt cập nhật tự động.
 
 ## Phát hành

@@ -80,6 +80,12 @@ function General({
           label={t('Mark messages as read when I open them')}
         />
         <Toggle
+          checked={prefs.darkMessages}
+          onChange={(v) => setPrefs({ darkMessages: v })}
+          label={t('Dark background for messages in the dark theme')}
+          hint={t('Light backgrounds and dark text are recoloured; pictures stay as they are')}
+        />
+        <Toggle
           checked={prefs.remoteImages}
           onChange={(v) => setPrefs({ remoteImages: v })}
           label={t('Always show remote images')}

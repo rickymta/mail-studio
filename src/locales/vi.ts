@@ -16,6 +16,10 @@ export const vi: Record<string, string> = {
   'No matching shortcuts': 'Không có phím tắt phù hợp',
   or: 'hoặc',
   '{n} unread': '{n} chưa đọc',
+  'Dark background for messages in the dark theme':
+    'Nền tối cho nội dung thư khi dùng giao diện tối',
+  'Light backgrounds and dark text are recoloured; pictures stay as they are':
+    'Nền sáng và chữ tối được đổi màu; hình ảnh giữ nguyên',
   'Zoom out': 'Thu nhỏ',
   'Zoom in': 'Phóng to',
   'Could not preview the PDF. Save it to open it in another application.':
@@ -32,11 +36,6 @@ export const vi: Record<string, string> = {
   'Loading preview…': 'Đang tải bản xem trước…',
   'Preview shortened. Save the file to read all content.':
     'Bản xem trước đã rút gọn. Hãy lưu tệp để đọc toàn bộ.',
-  'Attachment panel height': 'Chiều cao vùng đính kèm',
-  'Expand attachments': 'Mở rộng tệp đính kèm',
-  'Collapse attachments': 'Thu gọn tệp đính kèm',
-  Preview: 'Xem trước',
-  'File details': 'Thông tin tệp',
   'Save {name}': 'Lưu {name}',
   'Drag the dividers between panes to resize them. Double-click a divider to restore its default size. Your layout is saved automatically.':
     'Kéo đường phân cách giữa các khung để đổi kích thước. Nhấp đúp để khôi phục kích thước mặc định. Bố cục được lưu tự động.',
@@ -119,7 +118,6 @@ export const vi: Record<string, string> = {
   '(no recipient)': '(chưa có người nhận)',
   '(no subject)': '(không có tiêu đề)',
   '(unknown sender)': '(không rõ người gửi)',
-  '{n} attachments': '{n} tệp đính kèm',
   '{n} messages': '{n} thư',
   '{n} new messages — {account}': '{n} thư mới — {account}',
   '{n} selected': 'Đã chọn {n}',

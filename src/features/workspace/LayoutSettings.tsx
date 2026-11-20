@@ -48,7 +48,6 @@ export function LayoutSettings() {
             prefs.mode === 'columns' ? 'px' : '%',
           ],
           ['rowHeight', t('Message row height'), 80, 128, 'px'],
-          ['attachments', t('Attachment panel height'), 100, 400, 'px'],
         ] as const
       ).map(([key, label, min, max, unit]) => (
         <label key={key} className="flex flex-col gap-2">
