@@ -204,9 +204,188 @@ pub fn detect(email: &str) -> serde_json::Value {
     custom
 }
 
+/// One server out of a Thunderbird-style autoconfig document.
+#[derive(Debug, PartialEq)]
+struct Endpoint {
+    host: String,
+    port: u16,
+    security: &'static str,
+}
+
+fn tag<'a>(xml: &'a str, name: &str) -> Option<&'a str> {
+    let start = xml.find(&format!("<{name}>"))? + name.len() + 2;
+    let end = start + xml[start..].find(&format!("</{name}>"))?;
+    Some(xml[start..end].trim())
+}
+
+/// The first `<incomingServer type="imap">` / `<outgoingServer type="smtp">` block.
+fn endpoint(xml: &str, element: &str, kind: &str) -> Option<Endpoint> {
+    let close = format!("</{element}>");
+    let mut rest = xml;
+    loop {
+        let start = rest.find(&format!("<{element}"))?;
+        let block = &rest[start..];
+        let end = block.find(&close)?;
+        let (block, after) = block.split_at(end);
+        rest = &after[close.len()..];
+        let head = &block[..block.find('>')?];
+        if !head
+            .replace('\'', "\"")
+            .contains(&format!("type=\"{kind}\""))
+        {
+            continue;
+        }
+        let host = tag(block, "hostname")?.to_lowercase();
+        let port = tag(block, "port")?.parse().ok()?;
+        let security = match tag(block, "socketType")?.to_ascii_uppercase().as_str() {
+            "SSL" => "tls",
+            "STARTTLS" => "starttls",
+            _ => "none",
+        };
+        let valid = !host.is_empty()
+            && host
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-');
+        return valid.then_some(Endpoint {
+            host,
+            port,
+            security,
+        });
+    }
+}
+
+fn parse_autoconfig(xml: &str) -> Option<(Endpoint, Endpoint)> {
+    Some((
+        endpoint(xml, "incomingServer", "imap")?,
+        endpoint(xml, "outgoingServer", "smtp")?,
+    ))
+}
+
+async fn fetch_autoconfig(client: &reqwest::Client, url: String) -> Option<(Endpoint, Endpoint)> {
+    let res = client.get(url).send().await.ok()?;
+    if !res.status().is_success() {
+        return None;
+    }
+    parse_autoconfig(&res.text().await.ok()?)
+}
+
+async fn resolves(host: String) -> Option<String> {
+    let found = tokio::net::lookup_host((host.as_str(), 0))
+        .await
+        .ok()?
+        .next();
+    found.map(|_| host)
+}
+
+async fn first_resolving(hosts: [String; 2]) -> Option<String> {
+    let [a, b] = hosts;
+    let (a, b) = tokio::join!(resolves(a), resolves(b));
+    a.or(b)
+}
+
+/// Settings for an address. Known providers come from the presets. For any other domain this
+/// asks, in order of trust: the domain's own autoconfig service (the convention Thunderbird
+/// introduced, which most hosting companies publish), Mozilla's public database of providers,
+/// and finally whichever of the usual host names (`imap.` / `smtp.` / `mail.`) exist in DNS.
+/// Only the domain is ever sent, never the address.
+pub async fn discover(email: &str) -> serde_json::Value {
+    let mut found = detect(email);
+    let domain = email
+        .rsplit('@')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_lowercase();
+    let plausible = domain.contains('.')
+        && domain
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-');
+    if found["id"] != "custom" || !email.contains('@') || !plausible {
+        return found;
+    }
+
+    let lookup = async {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(6))
+            .redirect(reqwest::redirect::Policy::limited(3))
+            .build()
+            .ok()?;
+        let path = "mail/config-v1.1.xml";
+        // Hosting companies usually point autoconfig.<domain> at a shared server whose
+        // certificate is for another name, so plain HTTP has to stay as a fallback.
+        let (own_tls, well_known, own_plain, ispdb) = tokio::join!(
+            fetch_autoconfig(&client, format!("https://autoconfig.{domain}/{path}")),
+            fetch_autoconfig(
+                &client,
+                format!("https://{domain}/.well-known/autoconfig/{path}")
+            ),
+            fetch_autoconfig(&client, format!("http://autoconfig.{domain}/{path}")),
+            fetch_autoconfig(
+                &client,
+                format!("https://autoconfig.thunderbird.net/v1.1/{domain}")
+            ),
+        );
+        own_tls.or(well_known).or(own_plain).or(ispdb)
+    };
+    if let Some((imap, smtp)) = lookup.await {
+        found["imapHost"] = imap.host.into();
+        found["imapPort"] = imap.port.into();
+        found["imapSecurity"] = imap.security.into();
+        found["smtpHost"] = smtp.host.into();
+        found["smtpPort"] = smtp.port.into();
+        found["smtpSecurity"] = smtp.security.into();
+        return found;
+    }
+
+    let (imap, smtp) = tokio::join!(
+        first_resolving([format!("imap.{domain}"), format!("mail.{domain}")]),
+        first_resolving([format!("smtp.{domain}"), format!("mail.{domain}")]),
+    );
+    if let Some(host) = imap {
+        found["imapHost"] = host.into();
+    }
+    if let Some(host) = smtp {
+        found["smtpHost"] = host.into();
+    }
+    found
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_autoconfig_documents() {
+        let xml = r#"<?xml version="1.0"?>
+<clientConfig version="1.1"><emailProvider id="example.org">
+  <incomingServer type="pop3"><hostname>pop.example.org</hostname><port>995</port>
+    <socketType>SSL</socketType></incomingServer>
+  <incomingServer type="imap"><hostname>Mail.Example.org</hostname><port>993</port>
+    <socketType>SSL</socketType><username>%EMAILADDRESS%</username></incomingServer>
+  <outgoingServer type='smtp'><hostname>smtp.example.org</hostname><port>587</port>
+    <socketType>STARTTLS</socketType></outgoingServer>
+</emailProvider></clientConfig>"#;
+        let (imap, smtp) = parse_autoconfig(xml).unwrap();
+        assert_eq!(
+            imap,
+            Endpoint {
+                host: "mail.example.org".into(),
+                port: 993,
+                security: "tls"
+            }
+        );
+        assert_eq!(
+            smtp,
+            Endpoint {
+                host: "smtp.example.org".into(),
+                port: 587,
+                security: "starttls"
+            }
+        );
+        assert!(parse_autoconfig("<html>404</html>").is_none());
+        let bad = xml.replace("Mail.Example.org", "evil host/");
+        assert!(parse_autoconfig(&bad).is_none());
+    }
 
     #[test]
     fn detects_known_and_unknown_domains() {

@@ -72,6 +72,11 @@ pnpm test && pnpm lint && pnpm build
 | Yahoo, iCloud, Zoho, Yandex, Fastmail, AOL | Mật khẩu ứng dụng                                                 |
 | GMX, Mail.ru, máy chủ riêng                | Mật khẩu thường (tuỳ máy chủ)                                     |
 
+Với tên miền riêng (thư công ty), MailStudio tự dò máy chủ: hỏi dịch vụ autoconfig của chính tên
+miền (`autoconfig.<tên miền>`), rồi cơ sở dữ liệu nhà cung cấp công khai của Mozilla
+(`autoconfig.thunderbird.net`), cuối cùng thử các tên quen thuộc `imap.` / `smtp.` / `mail.`. Chỉ tên
+miền được gửi đi, không gửi địa chỉ e-mail.
+
 OAuth cần **client ID của riêng bạn** (Cài đặt → Đăng nhập (OAuth)): Google và Microsoft chỉ cho phép
 ứng dụng đã đăng ký với họ, và dự án này không kèm sẵn client ID nào.
 

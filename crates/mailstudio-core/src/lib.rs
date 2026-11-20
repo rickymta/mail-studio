@@ -283,7 +283,7 @@ pub async fn dispatch(cmd: &str, args: Value) -> Result<Value> {
         }
 
         "providers.list" => json!(providers::PROVIDERS),
-        "providers.detect" => providers::detect(&arg::<String>(a, "email")?),
+        "providers.detect" => providers::discover(&arg::<String>(a, "email")?).await,
 
         "account.list" => json!(db::with(|c| db::accounts(c))?),
         "account.test" => account_test(a).await?,

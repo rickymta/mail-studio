@@ -153,7 +153,7 @@ function Form({ existing }: { existing: Account | null }) {
         },
         () => {},
       );
-    }, 300);
+    }, 600); // the lookup may go to the network, so wait for a pause in typing
     return () => {
       live = false;
       clearTimeout(timer);
