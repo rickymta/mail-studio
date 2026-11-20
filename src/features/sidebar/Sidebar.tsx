@@ -9,7 +9,6 @@ import {
   MoreHorizontal,
   PenSquare,
   Pencil,
-  Plus,
   RefreshCw,
   Send,
   Settings,
@@ -24,7 +23,14 @@ import { t } from '@/lib/i18n';
 import { api } from '@/lib/ipc';
 import type { Account, Folder, Role } from '@/lib/types';
 import { useCompose } from '@/stores/compose';
-import { accountColor, sameView, sortedFolders, useMail, type View } from '@/stores/mail';
+import {
+  accountColor,
+  sameView,
+  sortedFolders,
+  useMail,
+  viewAccountId,
+  type View,
+} from '@/stores/mail';
 import { ask, confirm, toastError, useUi } from '@/stores/ui';
 
 export const DRAG_TYPE = 'application/x-mailstudio-ids';
@@ -298,8 +304,8 @@ export function Sidebar() {
   const view = useMail((s) => s.view);
   const setView = useMail((s) => s.setView);
   const anySync = useMail((s) => s.syncing.length > 0);
-  const openDialog = useUi((s) => s.openDialog);
   const [draftCount, setDraftCount] = useState(0);
+  const activeAccount = viewAccountId(view, folders);
 
   useEffect(() => {
     const load = () =>
@@ -365,23 +371,14 @@ export function Sidebar() {
             onClick={() => setView(s.view)}
           />
         ))}
-        {accounts.map((a) => (
-          <AccountSection key={a.id} account={a} />
-        ))}
+        {/* Only the account picked in the rail shows its folders; the cross-account views
+            (All inboxes, Unread, …) show none — the rail is the account switcher. */}
+        {accounts
+          .filter((a) => a.id === activeAccount)
+          .map((a) => (
+            <AccountSection key={a.id} account={a} />
+          ))}
       </nav>
-      <div className="flex items-center gap-1 border-t border-border p-2">
-        <button
-          type="button"
-          className="flex h-8 flex-1 items-center gap-2 rounded-md px-2 text-left hover:bg-surface-hover"
-          onClick={() => openDialog('account', null)}
-        >
-          <Plus className="size-4 text-muted-foreground" />
-          {t('Add account')}
-        </button>
-        <IconButton label={t('Settings')} onClick={() => openDialog('settings')}>
-          <Settings className="size-4" />
-        </IconButton>
-      </div>
     </aside>
   );
 }

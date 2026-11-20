@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Avatar,
   Button,
+  Checkbox,
   IconButton,
   Menu,
   RightClick,
@@ -157,21 +158,22 @@ function MessageRow({ m, showAccount }: { m: Summary; showAccount: boolean }) {
           <span className={cn(anyChecked || checked ? 'hidden' : 'group-hover:hidden')}>
             <Avatar name={avatarName} />
           </span>
-          <input
-            type="checkbox"
-            aria-label={t('Select message')}
-            checked={checked}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) =>
-              useMail
-                .getState()
-                .toggleChecked(m.id, (e.nativeEvent as MouseEvent).shiftKey === true)
-            }
+          <span
             className={cn(
-              'absolute inset-0 m-auto size-4 accent-[var(--accent)]',
-              anyChecked || checked ? 'block' : 'hidden group-hover:block',
+              'absolute inset-0 items-center justify-center',
+              anyChecked || checked ? 'flex' : 'hidden group-hover:flex',
             )}
-          />
+          >
+            <Checkbox
+              aria-label={t('Select message')}
+              checked={checked}
+              // Handled on click (not onCheckedChange) to see Shift for range selection.
+              onClick={(e) => {
+                e.stopPropagation();
+                useMail.getState().toggleChecked(m.id, e.shiftKey);
+              }}
+            />
+          </span>
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">

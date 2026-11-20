@@ -1,10 +1,10 @@
-import { Inbox, Plus } from 'lucide-react';
+import { Inbox, Plus, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { cn } from '@/components/ui';
 import { t } from '@/lib/i18n';
 import type { Folder } from '@/lib/types';
-import { accountColor, useMail } from '@/stores/mail';
+import { accountColor, useMail, viewAccountId } from '@/stores/mail';
 import { useUi } from '@/stores/ui';
 
 import { accountInitials, badgeText } from './rail';
@@ -60,8 +60,7 @@ export function AccountRail() {
   const folders = useMail((s) => s.folders);
   const view = useMail((s) => s.view);
   const setView = useMail((s) => s.setView);
-  const activeAccount =
-    view.kind === 'folder' ? folders.find((f) => f.id === view.folderId)?.accountId : undefined;
+  const activeAccount = viewAccountId(view, folders);
   const allUnread = folders.filter((f) => f.role === 'inbox').reduce((n, f) => n + f.unread, 0);
   return (
     <nav
@@ -100,6 +99,14 @@ export function AccountRail() {
         className="border border-dashed border-border text-muted-foreground hover:bg-surface-hover"
       >
         <Plus className="size-4" />
+      </Tile>
+      {/* Pinned to the bottom of the rail, the same size as the account tiles. */}
+      <Tile
+        label={t('Settings')}
+        onClick={() => useUi.getState().openDialog('settings')}
+        className="mt-auto border border-border bg-surface text-muted-foreground hover:bg-surface-hover"
+      >
+        <Settings className="size-5" />
       </Tile>
     </nav>
   );

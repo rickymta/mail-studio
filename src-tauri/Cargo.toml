@@ -33,10 +33,21 @@ axum = { workspace = true, optional = true }
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2.4.5"
 
+[target.'cfg(windows)'.dependencies]
+# Finding the default browser, to open the OAuth sign-in in a window of its own…
+windows-registry = "0.6"
+# …and sizing that window, then closing it when the sign-in is over (src/win32.rs).
+windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 # Debug-only HTTP bridge so the UI can run in a plain browser against the real backend.
 dev-bridge = ["dep:axum"]
 
-[lints]
-workspace = true
+# The workspace lints, except that `unsafe` is denied rather than forbidden so that src/win32.rs
+# alone can opt in for its Win32 calls.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

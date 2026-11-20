@@ -30,42 +30,37 @@ function General({
         <Field label={t('Language')}>
           <Select
             value={lang}
-            onChange={(e) => useLangStore.getState().setLang(e.target.value as Lang)}
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.native}
-              </option>
-            ))}
-          </Select>
+            onValueChange={(v) => useLangStore.getState().setLang(v as Lang)}
+            options={LANGUAGES.map((l) => ({ value: l.id, label: l.native }))}
+          />
         </Field>
         <Field label={t('Theme')}>
           <Select
             value={prefs.theme}
-            onChange={(e) => setPrefs({ theme: e.target.value as Theme })}
-          >
-            <option value="system">{t('Same as the system')}</option>
-            <option value="light">{t('Light')}</option>
-            <option value="dark">{t('Dark')}</option>
-          </Select>
+            onValueChange={(v) => setPrefs({ theme: v as Theme })}
+            options={[
+              { value: 'dark', label: t('Dark') },
+              { value: 'light', label: t('Light') },
+            ]}
+          />
         </Field>
       </div>
       <Field label={t('Check for new mail')}>
         <Select
           value={interval}
-          onChange={(e) => {
+          onValueChange={(v) => {
             api
-              .setSettings({ 'setting.syncInterval': e.target.value })
+              .setSettings({ 'setting.syncInterval': v })
               .then(reload, (err) => toastError(t('Could not save the setting'), err));
           }}
-        >
-          {INTERVALS.map((m) => (
-            <option key={m} value={m}>
-              {m === 1 ? t('Every minute') : t('Every {n} minutes', { n: m })}
-            </option>
-          ))}
-          <option value="0">{t('Only when I press Sync')}</option>
-        </Select>
+          options={[
+            ...INTERVALS.map((m) => ({
+              value: String(m),
+              label: m === 1 ? t('Every minute') : t('Every {n} minutes', { n: m }),
+            })),
+            { value: '0', label: t('Only when I press Sync') },
+          ]}
+        />
       </Field>
       <div>
         <Toggle
@@ -165,6 +160,14 @@ function OAuth({
           className="m-0 flex flex-col gap-2 rounded-md border border-border p-3"
         >
           <legend className="px-1 font-medium">{p.name}</legend>
+          {settings[`oauth.${p.id}.builtIn`] && (
+            <p className="m-0 text-xs font-medium">
+              {t(
+                'MailStudio’s own {provider} client is used, so no setup is needed. Fill these in only to use your own.',
+                { provider: p.name },
+              )}
+            </p>
+          )}
           <p className="m-0 text-xs text-muted-foreground">{p.steps()}</p>
           <Field label={t('Client ID')}>
             <Input

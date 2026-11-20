@@ -38,14 +38,16 @@ interface PromptState extends PromptSpec {
   resolve: (v: PromptValues | null) => void;
 }
 
-export type Theme = 'system' | 'light' | 'dark';
+/** The app has a dark and a light mode, chosen in Settings; it does not follow the OS. */
+export type Theme = 'light' | 'dark';
 
 /** Preferences that only concern this window (kept in localStorage). */
 export interface Prefs {
   theme: Theme;
   /** Desktop notification when new mail arrives. */
   notifications: boolean;
-  /** Load images from the internet without asking (off by default: they tell senders you read). */
+  /** Load images from the internet without asking. On by default; off keeps senders from seeing
+   *  when you read their message (a "Show images" bar then loads them per message). */
   remoteImages: boolean;
   /** Opening a message marks it read. */
   markReadOnOpen: boolean;
@@ -54,17 +56,49 @@ export interface Prefs {
 }
 
 const PREFS_KEY = 'mailstudio.prefs';
+/**
+ * Bumped when a default changes for existing installs too. 2: remote images shown by default.
+ * 3 (briefly): messages kept light in the dark theme; 4: back to dark, so a `false` stored by 3
+ * is not a choice either.
+ */
+const PREFS_VERSION = 4;
 const DEFAULT_PREFS: Prefs = {
-  theme: 'system',
+  theme: 'dark',
   notifications: true,
-  remoteImages: false,
+  remoteImages: true,
   markReadOnOpen: true,
   darkMessages: true,
 };
 
+/** Stored preferences over the defaults; exported for tests. */
+export function mergePrefs(stored: Partial<Prefs> & { version?: number }): Prefs {
+  const prefs: Partial<Prefs> & { version?: number } = { ...stored };
+  // Every save writes all fields, so a field stored before the version that changed its default
+  // holds only the old default, not a choice: let the new default apply.
+  const version = prefs.version ?? 1;
+  if (version < 2) delete prefs.remoteImages;
+  if (version === 3) delete prefs.darkMessages;
+  delete prefs.version;
+  // The old "same as the system" theme becomes whichever mode the OS is in now, so nothing
+  // changes on screen; from then on it stays put.
+  if (prefs.theme !== 'light' && prefs.theme !== 'dark') {
+    if (prefs.theme === undefined) delete prefs.theme;
+    else prefs.theme = osTheme();
+  }
+  return { ...DEFAULT_PREFS, ...prefs };
+}
+
+function osTheme(): Theme {
+  return typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    !window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'light'
+    : 'dark';
+}
+
 function loadPrefs(): Prefs {
   try {
-    return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') };
+    return mergePrefs(JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}'));
   } catch {
     return DEFAULT_PREFS;
   }
@@ -117,7 +151,7 @@ export const useUi = create<UiStore>((set, get) => ({
   setPrefs: (p) => {
     const prefs = { ...get().prefs, ...p };
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ ...prefs, version: PREFS_VERSION }));
     } catch {
       /* ignore */
     }
@@ -142,12 +176,4 @@ export async function confirm(
   danger = false,
 ) {
   return (await ask({ title, description, confirmLabel, danger })) !== null;
-}
-
-/** `dark` or `light` for a theme preference, following the OS for `system`. */
-export function resolveTheme(theme: Theme): 'dark' | 'light' {
-  if (theme !== 'system') return theme;
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
 }

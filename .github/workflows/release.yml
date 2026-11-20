@@ -227,6 +227,9 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Secret của Google OAuth client có sẵn (crates/mailstudio-core/src/oauth.rs), nạp lúc
+          # biên dịch để repo không chứa nó. Thiếu secret thì bản build không có client Google sẵn.
+          MAILSTUDIO_GOOGLE_CLIENT_SECRET: ${{ secrets.MAILSTUDIO_GOOGLE_CLIENT_SECRET }}
           APPIMAGE_EXTRACT_AND_RUN: '1'
         run: |
           for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID \

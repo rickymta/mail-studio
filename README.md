@@ -8,32 +8,33 @@ khác. Viết bằng Rust + Tauri 2, chạy trên Windows, macOS và Linux.
 
 - **Tài khoản**: thêm nhiều tài khoản; tự nhận diện nhà cung cấp theo địa chỉ e-mail và điền sẵn
   máy chủ; kiểm tra kết nối IMAP + SMTP trước khi lưu; màu và chữ ký riêng cho từng tài khoản.
-- **Đăng nhập**: mật khẩu / mật khẩu ứng dụng, hoặc OAuth 2 (PKCE, trình duyệt hệ thống) cho Google
+- **Đăng nhập**: mật khẩu / mật khẩu ứng dụng, hoặc OAuth 2 (PKCE, cửa sổ đăng nhập riêng của app; menu "Mở bằng trình duyệt" chuyển sang cửa sổ mới của trình duyệt mặc định khi nhà cung cấp chặn webview) cho Google
   và Microsoft. Mật khẩu và refresh token nằm trong kho khoá của hệ điều hành, không nằm trong
   cơ sở dữ liệu.
 - **Hộp thư**: hộp thư đến hợp nhất, Chưa đọc, Gắn sao; cây thư mục từng tài khoản (nhận diện Đã gửi,
   Thư nháp, Thùng rác, Thư rác, Lưu trữ qua SPECIAL-USE hoặc tên); tạo / đổi tên / xoá thư mục.
 - **Đồng bộ**: tăng dần theo UID, đối chiếu cờ và thư đã xoá, tự chạy theo chu kỳ, tải trước nội
   dung thư nhỏ để đọc ngoại tuyến; thông báo khi có thư mới.
-- **Đọc thư**: HTML được làm sạch ở backend và hiển thị trong shadow DOM; ảnh từ internet bị chặn
-  cho tới khi bạn cho phép; mở / lưu tệp đính kèm; xem mã nguồn thư.
+- **Đọc thư**: HTML được làm sạch ở backend và hiển thị trong shadow DOM; ảnh từ internet hiện sẵn
+  (tắt được trong Cài đặt, khi đó thư có nút Hiện ảnh); mở / lưu tệp đính kèm; xem mã nguồn thư.
 - **Thao tác**: đã đọc / chưa đọc, gắn sao, lưu trữ, chuyển thư mục (kể cả kéo-thả), thư rác, xoá;
   chọn nhiều thư; phím tắt.
 - **Soạn thư**: thư mới, trả lời, trả lời tất cả, chuyển tiếp (kèm tệp gốc); To / Cc / Bcc có gợi ý
   từ danh bạ tự thu thập; định dạng cơ bản; đính kèm tệp; thư nháp tự lưu trên máy.
 - **Tìm kiếm** trong thư đã đồng bộ (người gửi, người nhận, tiêu đề, trích đoạn) và bộ lọc nhanh.
-- Giao diện tiếng Việt / tiếng Anh, sáng / tối / theo hệ thống.
+- Giao diện tiếng Việt / tiếng Anh, chế độ tối (mặc định) hoặc sáng.
 
 ## Tiện ích giao diện
 
 - **Cột tài khoản** ở mép trái: mỗi tài khoản là một ô vuông bo nhẹ mang chữ viết tắt và màu của tài khoản, kèm huy hiệu số thư chưa đọc trong Hộp thư đến (tối đa `99+`). Bấm vào để mở Hộp thư đến của tài khoản đó; ô trên cùng là "Tất cả hộp thư đến".
 - **Bố cục**: khung đọc nằm bên phải hoặc bên dưới; kéo vách ngăn để đổi kích thước, nhấp đúp để về mặc định.
-- **Thanh trạng thái** luôn có Bố cục, Nhật ký hoạt động, Phím tắt, thu phóng, phiên bản, Trợ giúp và Cài đặt.
+- **Cài đặt** là ô vuông dưới cùng của cột tài khoản (khi chưa có tài khoản: nút Cài đặt ở màn hình chào mừng). Thêm tài khoản bằng nút **+** trên cột tài khoản.
+- **Thanh trạng thái** luôn có Bố cục, Nhật ký hoạt động, Phím tắt, thu phóng, phiên bản và Trợ giúp.
 - **Ctrl+/** mở cửa sổ phím tắt (có ô lọc); **F1** mở trợ giúp; **Ctrl+Shift+L** mở nhật ký hoạt động (tìm kiếm, lọc, sao chép, xoá; lưu 500 thao tác gần nhất trên máy, không ghi nội dung thư, địa chỉ hay mật khẩu).
 - **Ctrl + / Ctrl - / Ctrl 0** phóng to, thu nhỏ, đặt lại cỡ giao diện (60–200%).
 - Các phím **F1–F12** và **Ctrl+R** không còn kích hoạt hành vi mặc định của webview (F5 tải lại ứng dụng, F3 tìm kiếm, F12 công cụ nhà phát triển…).
 - Xem trước tệp đính kèm ngay trong ứng dụng: ảnh, văn bản, âm thanh, video và PDF (tối đa 20 MB).
-- Với giao diện tối, nội dung thư HTML cũng được đổi sang nền tối (nền sáng và chữ tối được đổi màu, hình ảnh giữ nguyên); tắt được trong Cài đặt. Ảnh bị chặn hiển thị bằng biểu tượng loại tệp (Excel, Word, PDF…) suy ra từ liên kết bên cạnh.
+- Thư HTML giữ bố cục như Gmail. Với giao diện tối, nội dung thư cũng được đổi sang nền tối (nền sáng và chữ tối được đổi màu, hình ảnh giữ nguyên); tắt được trong Cài đặt. Ảnh bị chặn hiển thị bằng biểu tượng loại tệp (Excel, Word, PDF…) suy ra từ liên kết bên cạnh.
 - Nhấn **phiên bản** để xem thông tin ứng dụng và thư mục dữ liệu. Chưa có kiểm tra/cài đặt cập nhật tự động.
 
 ## Phát hành

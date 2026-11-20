@@ -258,15 +258,13 @@ function ComposerBody({ session }: { session: number }) {
             <Select
               aria-label={t('From')}
               className="h-7 border-0 bg-transparent px-0"
-              value={draft.accountId}
-              onChange={(e) => changeAccount(Number(e.target.value))}
-            >
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name ? `${a.name} <${a.email}>` : a.email}
-                </option>
-              ))}
-            </Select>
+              value={String(draft.accountId)}
+              onValueChange={(v) => changeAccount(Number(v))}
+              options={accounts.map((a) => ({
+                value: String(a.id),
+                label: a.name ? `${a.name} <${a.email}>` : a.email,
+              }))}
+            />
           </div>
         )}
         <AddressInput

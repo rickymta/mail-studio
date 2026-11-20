@@ -1,23 +1,28 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { parseAddrList } from '@/lib/format';
 import { applyDarkMail } from '@/lib/darkMail';
 import { linkify, prepareMailHtml, type FileKind } from '@/lib/html';
 import { openUrl } from '@/lib/native';
 import { useCompose } from '@/stores/compose';
-import { resolveTheme, useUi } from '@/stores/ui';
+import { useUi } from '@/stores/ui';
 
-// Mail is written for a white page, whatever the app theme. `all: initial` cuts the app's
-// inherited styles off; the transform keeps `position: fixed` content inside the message.
+// Mail is written for a white page, whatever the app theme, and laid out the way webmail (Gmail)
+// shows it. `all: initial` cuts the app's inherited styles off; the transform keeps
+// `position: fixed` content inside the message. Too wide a message scrolls sideways rather than
+// being squeezed: `overflow-wrap: break-word` (not `anywhere`, which lets table columns shrink to
+// one letter) and no percentage limits inside tables (they collapse auto-sized cells, and the
+// icons in them, to nothing).
 const BASE_CSS = `
 :host { all: initial; display: block; }
 .mail {
   background: #fff; color: #1f2328; font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  padding: 16px 20px; overflow-x: auto; overflow-wrap: anywhere; user-select: text;
+  padding: 16px 20px; overflow-x: auto; overflow-wrap: break-word; user-select: text;
   transform: translateZ(0); border-radius: 6px; min-height: 40px;
 }
 .mail.plain { background: var(--surface, #fff); color: var(--foreground, #1f2328); white-space: pre-wrap; font-size: 13.5px; }
 img { max-width: 100%; height: auto; }
+table img { max-width: none; }
 img[data-blocked] {
   display: inline-block; min-width: 20px; min-height: 20px; vertical-align: middle;
   background: #eef0f3 center / 16px 16px no-repeat; border-radius: 3px;
@@ -27,7 +32,6 @@ img[data-blocked] {
 :host([data-dark]) .mail:not(.plain) { background: #1b1e26; color: #e3e6eb; }
 :host([data-dark]) .mail:not(.plain) a { color: #8ab4f8; }
 :host([data-dark]) img[data-blocked] { background-color: #2a2f3a; outline-color: #4a5160; }
-table { max-width: 100%; }
 a { color: #0b57d0; }
 pre { white-space: pre-wrap; }
 blockquote { margin: 0 0 0 .8ex; border-left: 2px solid #ccc; padding-left: 1ex; color: #555; }
@@ -64,19 +68,11 @@ const ICON_CSS = (Object.entries(KIND_ICON) as [FileKind, [string, string]][])
 
 const STYLE = `<style>${BASE_CSS}${ICON_CSS}</style>`;
 
-function subscribeScheme(notify: () => void) {
-  const mq = window.matchMedia('(prefers-color-scheme: dark)');
-  mq.addEventListener('change', notify);
-  return () => mq.removeEventListener('change', notify);
-}
-
-/** Whether HTML messages are to be shown dark: the dark theme, unless the user opted out. */
+/** Whether HTML messages are to be shown dark: the dark mode, unless the user opted out. */
 function useDarkMessages(): boolean {
   const theme = useUi((s) => s.prefs.theme);
   const wanted = useUi((s) => s.prefs.darkMessages);
-  // Re-render when the OS switches, for the "same as the system" theme.
-  useSyncExternalStore(subscribeScheme, () => resolveTheme('system'));
-  return wanted && resolveTheme(theme) === 'dark';
+  return wanted && theme === 'dark';
 }
 
 /**

@@ -82,6 +82,10 @@ fn settings_get() -> Result<Value> {
             .flatten()
             .is_some();
         out.insert(format!("oauth.{provider}.hasClientSecret"), json!(has));
+        out.insert(
+            format!("oauth.{provider}.builtIn"),
+            json!(oauth::has_builtin_client(provider)),
+        );
     }
     Ok(Value::Object(out))
 }

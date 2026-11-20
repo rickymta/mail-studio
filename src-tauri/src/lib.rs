@@ -5,12 +5,36 @@ use serde_json::Value;
 use tauri::{Manager, PhysicalPosition, PhysicalSize};
 use tauri_plugin_opener::OpenerExt;
 
+mod browser;
+mod signin;
+#[cfg(windows)]
+mod win32;
+
 /// Share of the screen the main window covers when the app starts.
 const START_FRACTION: f64 = 0.85;
 
 #[tauri::command]
 async fn call(cmd: String, args: Value) -> Result<Value, mailstudio_core::Error> {
     mailstudio_core::dispatch(&cmd, args).await
+}
+
+/// Show an OAuth sign-in page in the app's sign-in window (https only). The labels come from the
+/// UI so they follow its language. Async on purpose: a synchronous command runs on the main
+/// thread, and creating a webview window from there deadlocks on Windows (blank, frozen window).
+#[tauri::command]
+async fn open_sign_in(
+    app: tauri::AppHandle,
+    url: String,
+    title: String,
+    open_in_browser: String,
+) -> Result<(), mailstudio_core::Error> {
+    signin::open(&app, &url, &title, &open_in_browser).map_err(mailstudio_core::Error::Invalid)
+}
+
+/// Close the sign-in window once the sign-in has finished (or failed).
+#[tauri::command]
+fn close_sign_in(app: tauri::AppHandle) {
+    signin::close(&app);
 }
 
 /// Open an attachment with its default application. Only files the backend itself wrote into
@@ -127,7 +151,12 @@ pub fn run() {
             tauri::async_runtime::spawn(mailstudio_core::background_loop());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![call, open_attachment])
+        .invoke_handler(tauri::generate_handler![
+            call,
+            open_attachment,
+            open_sign_in,
+            close_sign_in
+        ])
         .run(tauri::generate_context!())
         .expect("error while running MailStudio");
 }

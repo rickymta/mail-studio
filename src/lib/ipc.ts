@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 import { operationLabels, useActivity } from '@/stores/activity';
 
@@ -114,6 +115,19 @@ export const api = {
           toError({ kind: 'invalid', message: 'Opening attachments needs the desktop app' }),
         ),
   describeFile: (path: string) => call<T.DraftAttachment>('attachment.describe', { path }),
+  /**
+   * Show an OAuth sign-in page in the app's sign-in window (its menu can hand it to the default
+   * browser). In a plain browser (dev bridge) it opens in a new tab.
+   */
+  openSignIn: (url: string, labels: { title: string; openInBrowser: string }) =>
+    inTauri
+      ? invoke<null>('open_sign_in', { url, ...labels }).catch((e) => Promise.reject(toError(e)))
+      : Promise.resolve(void window.open(url, '_blank', 'noopener')),
+  /** Close the sign-in window, if open. */
+  closeSignIn: () => (inTauri ? invoke<null>('close_sign_in') : Promise.resolve(null)),
+  /** Runs `fn` when the user closes the sign-in window; returns the unsubscribe function. */
+  onSignInClosed: async (fn: () => void): Promise<() => void> =>
+    inTauri ? await listen('sign-in-closed', fn) : () => {},
 
   drafts: () => call<T.Draft[]>('draft.list'),
   saveDraft: (draft: T.Draft) => call<T.Draft>('draft.save', { draft }),

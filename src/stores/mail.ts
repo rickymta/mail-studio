@@ -34,6 +34,10 @@ function loadView(key = VIEW_KEY): View {
 export const sameView = (a: View, b: View) =>
   a.kind === b.kind && (a.kind !== 'folder' || (b.kind === 'folder' && a.folderId === b.folderId));
 
+/** The account a view belongs to: a folder's owner; `undefined` for the cross-account views. */
+export const viewAccountId = (view: View, folders: Folder[]) =>
+  view.kind === 'folder' ? folders.find((f) => f.id === view.folderId)?.accountId : undefined;
+
 function queryFor(
   s: Pick<MailStore, 'view' | 'filters' | 'query' | 'scopeAccountId'>,
 ): ListQuery | null {

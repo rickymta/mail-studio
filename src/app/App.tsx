@@ -1,4 +1,4 @@
-import { MailPlus, Inbox, ShieldCheck, Keyboard } from 'lucide-react';
+import { MailPlus, Inbox, Settings, ShieldCheck, Keyboard } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 import { Prompt, Toasts } from '@/components/Overlays';
@@ -11,7 +11,7 @@ import { MailLayout } from '@/features/workspace/MailLayout';
 import { t, useLang } from '@/lib/i18n';
 import { useCompose } from '@/stores/compose';
 import { useMail } from '@/stores/mail';
-import { resolveTheme, useUi } from '@/stores/ui';
+import { useUi } from '@/stores/ui';
 
 /** Keys that act on the list/reader; ignored while typing or while a dialog is open. */
 function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>) {
@@ -80,18 +80,27 @@ function Welcome() {
           'Read and write mail from all your accounts in one place: Gmail, Outlook, Yahoo, iCloud, Zoho and any other IMAP/SMTP mailbox.',
         )}
       </p>
-      <Button variant="primary" onClick={() => useUi.getState().openDialog('account', null)}>
-        <MailPlus className="size-4" />
-        {t('Add a mail account')}
-      </Button>
+      {/* No account rail yet, so Settings (language, OAuth clients…) is reached from here. */}
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button variant="primary" onClick={() => useUi.getState().openDialog('account', null)}>
+          <MailPlus className="size-4" />
+          {t('Add a mail account')}
+        </Button>
+        <Button onClick={() => useUi.getState().openDialog('settings')}>
+          <Settings className="size-4" />
+          {t('Settings')}
+        </Button>
+      </div>
       <div className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
         {(
           [
             [Inbox, t('All your mail, together'), t('One inbox for every account.')],
             [
               ShieldCheck,
-              t('Private by default'),
-              t('Remote images stay blocked until you allow them.'),
+              t('Safe to read'),
+              t(
+                'Messages are cleaned before they are shown; remote images can be turned off in Settings.',
+              ),
             ],
             [
               Keyboard,
@@ -126,12 +135,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const apply = () =>
-      document.documentElement.classList.toggle('dark', resolveTheme(theme) === 'dark');
-    apply();
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
   useEffect(() => {

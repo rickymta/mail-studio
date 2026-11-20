@@ -2,7 +2,6 @@ import {
   Activity,
   PanelsTopLeft,
   CircleHelp,
-  Settings,
   RefreshCw,
   CheckCircle2,
   AlertCircle,
@@ -83,12 +82,13 @@ function ActivityLogs() {
           aria-label={t('Status')}
           className="w-36"
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
-          <option value="all">{t('All activity')}</option>
-          <option value="finished">{t('Completed')}</option>
-          <option value="failed">{t('Failed')}</option>
-        </Select>
+          onValueChange={setFilter}
+          options={[
+            { value: 'all', label: t('All activity') },
+            { value: 'finished', label: t('Completed') },
+            { value: 'failed', label: t('Failed') },
+          ]}
+        />
         <Button
           disabled={!shown.length}
           onClick={() =>
@@ -198,7 +198,7 @@ function Help() {
         [
           t('Privacy'),
           t(
-            'Remote images are blocked by default. You can load them for a message or change this in Settings.',
+            'Remote images load by default. Turn off “Always show remote images” in Settings to hide them until you choose Show images, so senders cannot tell when you open a message.',
           ),
         ],
       ].map(([title, body]) => (
@@ -330,14 +330,6 @@ export function WorkspaceBar() {
         <Button variant="ghost" size="sm" onClick={() => open('help')} title="F1">
           <CircleHelp className="size-3.5" />
           {t('Help')}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => open('settings')}
-          aria-label={t('Settings')}
-        >
-          <Settings className="size-3.5" />
         </Button>
       </footer>
       <Modal

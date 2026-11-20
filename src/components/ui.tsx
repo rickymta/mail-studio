@@ -1,5 +1,12 @@
-import { ContextMenu, Dialog, DropdownMenu } from 'radix-ui';
-import { ChevronRight, Loader2, X } from 'lucide-react';
+import {
+  Checkbox as RCheckbox,
+  ContextMenu,
+  Dialog,
+  DropdownMenu,
+  RadioGroup as RRadioGroup,
+  Select as RSelect,
+} from 'radix-ui';
+import { Check, ChevronDown, ChevronRight, Loader2, Minus, X } from 'lucide-react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { hue, initials } from '@/lib/format';
@@ -97,8 +104,139 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return <textarea {...props} className={cn(fieldCls, 'resize-none py-2', props.className)} />;
 }
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={cn(fieldCls, 'h-8', props.className)} />;
+export interface Option {
+  value: string;
+  label: string;
+}
+
+/**
+ * Drop-down list drawn by the app instead of the webview's native popup, so it follows the theme.
+ * Values are strings (Radix forbids the empty string as an item value).
+ */
+export function Select({
+  value,
+  onValueChange,
+  options,
+  className,
+  disabled,
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  options: Option[];
+  className?: string;
+  disabled?: boolean;
+  'aria-label'?: string;
+}) {
+  return (
+    <RSelect.Root value={value} onValueChange={onValueChange} disabled={disabled}>
+      <RSelect.Trigger
+        aria-label={ariaLabel}
+        className={cn(
+          fieldCls,
+          'flex h-8 items-center justify-between gap-2 text-left data-[state=open]:border-accent',
+          className,
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">
+          <RSelect.Value />
+        </span>
+        <RSelect.Icon className="shrink-0 text-muted-foreground">
+          <ChevronDown className="size-4" />
+        </RSelect.Icon>
+      </RSelect.Trigger>
+      <RSelect.Portal>
+        <RSelect.Content
+          position="popper"
+          sideOffset={4}
+          className="z-50 max-h-[min(var(--radix-select-content-available-height),320px)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-border bg-surface text-[13px] shadow-xl"
+        >
+          <RSelect.Viewport className="p-1">
+            {options.map((o) => (
+              <RSelect.Item
+                key={o.value}
+                value={o.value}
+                className="relative flex h-7 cursor-default items-center rounded pr-2 pl-7 outline-none select-none data-[disabled]:opacity-40 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
+              >
+                <RSelect.ItemIndicator className="absolute left-2 inline-flex">
+                  <Check className="size-3.5" />
+                </RSelect.ItemIndicator>
+                <RSelect.ItemText>{o.label}</RSelect.ItemText>
+              </RSelect.Item>
+            ))}
+          </RSelect.Viewport>
+        </RSelect.Content>
+      </RSelect.Portal>
+    </RSelect.Root>
+  );
+}
+
+/** Check box in the app's style. Pass `onClick` instead of `onCheckedChange` to see modifier keys. */
+export function Checkbox({
+  checked,
+  onCheckedChange,
+  className,
+  ...rest
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onChange' | 'value' | 'defaultChecked'> & {
+  checked: boolean | 'indeterminate';
+  onCheckedChange?: (v: boolean) => void;
+}) {
+  return (
+    <RCheckbox.Root
+      {...rest}
+      checked={checked}
+      onCheckedChange={(v) => onCheckedChange?.(v === true)}
+      className={cn(
+        'inline-flex size-4 shrink-0 items-center justify-center rounded border border-muted-foreground/60 bg-background outline-offset-2 transition-colors hover:border-accent disabled:opacity-50 data-[state=checked]:border-accent data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent data-[state=indeterminate]:text-accent-foreground',
+        className,
+      )}
+    >
+      <RCheckbox.Indicator>
+        {checked === 'indeterminate' ? (
+          <Minus className="size-3" strokeWidth={3} />
+        ) : (
+          <Check className="size-3" strokeWidth={3} />
+        )}
+      </RCheckbox.Indicator>
+    </RCheckbox.Root>
+  );
+}
+
+/** A row of radio buttons in the app's style. */
+export function RadioGroup({
+  value,
+  onValueChange,
+  options,
+  className,
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  options: Option[];
+  className?: string;
+  'aria-label'?: string;
+}) {
+  return (
+    <RRadioGroup.Root
+      value={value}
+      onValueChange={onValueChange}
+      aria-label={ariaLabel}
+      orientation="horizontal"
+      className={cn('flex flex-wrap gap-x-4 gap-y-2', className)}
+    >
+      {options.map((o) => (
+        <label key={o.value} className="flex cursor-pointer items-center gap-2">
+          <RRadioGroup.Item
+            value={o.value}
+            className="peer inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-muted-foreground/60 bg-background outline-offset-2 transition-colors hover:border-accent data-[state=checked]:border-accent"
+          >
+            <RRadioGroup.Indicator className="size-2 rounded-full bg-accent" />
+          </RRadioGroup.Item>
+          {o.label}
+        </label>
+      ))}
+    </RRadioGroup.Root>
+  );
 }
 
 /** A labelled form row; `hint` explains the field in a sentence. */
@@ -135,12 +273,7 @@ export function Toggle({
 }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 py-1.5">
-      <input
-        type="checkbox"
-        className="mt-0.5 size-4 accent-[var(--accent)]"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
+      <Checkbox className="mt-0.5" checked={checked} onCheckedChange={onChange} />
       <span className="flex flex-col">
         <span>{label}</span>
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}

@@ -1,7 +1,17 @@
 import { CheckCircle2, ExternalLink, XCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { Button, Field, Input, Modal, Select, Spinner, Textarea, cn } from '@/components/ui';
+import {
+  Button,
+  Field,
+  Input,
+  Modal,
+  RadioGroup,
+  Select,
+  Spinner,
+  Textarea,
+  cn,
+} from '@/components/ui';
 import { t, useLang } from '@/lib/i18n';
 import { api, type AccountInput } from '@/lib/ipc';
 import { OAUTH } from '@/features/settings/oauthSetup';
@@ -56,7 +66,14 @@ function fromAccount(a: Account): AccountInput {
   return form;
 }
 
-function applyProvider(form: AccountInput, p: Provider): AccountInput {
+/**
+ * Fill in a provider's servers. The sign-in method the user already picked for this provider is
+ * kept (re-detecting from the address must not undo it); on a provider change OAuth is chosen
+ * when the provider requires it or its client is already set up, password sign-in otherwise.
+ */
+function applyProvider(form: AccountInput, p: Provider, oauthReady: boolean): AccountInput {
+  const oauth =
+    !!p.oauth && (p.oauthOnly || (form.provider === p.id ? form.auth === 'oauth' : oauthReady));
   return {
     ...form,
     provider: p.id,
@@ -66,10 +83,8 @@ function applyProvider(form: AccountInput, p: Provider): AccountInput {
     smtpHost: p.smtpHost,
     smtpPort: p.smtpPort,
     smtpSecurity: p.smtpSecurity,
-    // Password sign-in stays the default where it still works: OAuth needs a client ID the
-    // user must set up first.
-    auth: p.oauthOnly ? 'oauth' : 'password',
-    oauthProvider: p.oauthOnly ? p.oauth : '',
+    auth: oauth ? 'oauth' : 'password',
+    oauthProvider: oauth ? p.oauth : '',
   };
 }
 
@@ -113,14 +128,9 @@ function Server({
       <Field label={t('Security')}>
         <Select
           value={security}
-          onChange={(e) => onChange({ security: e.target.value as Security })}
-        >
-          {SECURITY.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label()}
-            </option>
-          ))}
-        </Select>
+          onValueChange={(v) => onChange({ security: v as Security })}
+          options={SECURITY.map((s) => ({ value: s.value, label: s.label() }))}
+        />
       </Field>
     </div>
   );
@@ -141,7 +151,37 @@ function Form({ existing }: { existing: Account | null }) {
   const provider = providers.find((p) => p.id === form.provider);
   const busy = status.kind === 'busy';
 
-  // Recognize the provider from the address while a new account is typed.
+  const secret = () => ({
+    password: form.auth === 'password' ? password : undefined,
+    oauthFlow: form.auth === 'oauth' ? oauthFlow : undefined,
+  });
+
+  // Browser sign-in needs a client registered with the provider (an ID, plus its secret where the
+  // provider demands one); ask for it right here instead of sending the user off to Settings.
+  // `null` = not known yet.
+  const [clientIds, setClientIds] = useState<Record<string, boolean> | null>(null);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  useEffect(() => {
+    api.settings().then(
+      (s) =>
+        setClientIds(
+          Object.fromEntries(
+            OAUTH.map((o) => [
+              o.id,
+              // The app's own client (built in) needs no setup; else the user's ID (+ secret).
+              !!s[`oauth.${o.id}.builtIn`] ||
+                (!!String(s[`oauth.${o.id}.clientId`] ?? '') &&
+                  (!o.needsSecret || !!s[`oauth.${o.id}.hasClientSecret`])),
+            ]),
+          ),
+        ),
+      () => setClientIds({}),
+    );
+  }, []);
+
+  // Recognize the provider from the address while a new account is typed. Running again once the
+  // OAuth settings arrive is harmless: the same provider keeps the sign-in method already chosen.
   useEffect(() => {
     if (existing || manual.current || !form.email.includes('@')) return;
     let live = true;
@@ -149,7 +189,7 @@ function Form({ existing }: { existing: Account | null }) {
       api.detectProvider(form.email).then(
         (p) => {
           if (!live || manual.current) return;
-          setForm((f) => applyProvider(f, p));
+          setForm((f) => applyProvider(f, p, !!clientIds?.[p.oauth]));
         },
         () => {},
       );
@@ -158,36 +198,23 @@ function Form({ existing }: { existing: Account | null }) {
       live = false;
       clearTimeout(timer);
     };
-  }, [form.email, existing]);
+  }, [form.email, existing, clientIds]);
 
-  const secret = () => ({
-    password: form.auth === 'password' ? password : undefined,
-    oauthFlow: form.auth === 'oauth' ? oauthFlow : undefined,
-  });
-
-  // Browser sign-in needs a client ID registered with the provider; ask for it right here
-  // instead of sending the user off to Settings. `null` = not known yet.
-  const [clientIds, setClientIds] = useState<Record<string, boolean> | null>(null);
-  const [clientId, setClientId] = useState('');
-  useEffect(() => {
-    api.settings().then(
-      (s) =>
-        setClientIds(
-          Object.fromEntries(OAUTH.map((o) => [o.id, !!String(s[`oauth.${o.id}.clientId`] ?? '')])),
-        ),
-      () => setClientIds({}),
-    );
-  }, []);
   const setup =
     form.auth === 'oauth' && clientIds && !clientIds[provider?.oauth ?? '']
       ? OAUTH.find((o) => o.id === provider?.oauth)
       : undefined;
+  const canSaveClient = !!clientId.trim() && (!setup?.needsSecret || !!clientSecret.trim());
   const saveClientId = async () => {
-    if (!setup) return;
+    if (!setup || !canSaveClient) return;
     try {
-      await api.setSettings({ [`oauth.${setup.id}.clientId`]: clientId.trim() });
+      await api.setSettings({
+        [`oauth.${setup.id}.clientId`]: clientId.trim(),
+        ...(setup.needsSecret ? { [`oauth.${setup.id}.clientSecret`]: clientSecret.trim() } : {}),
+      });
       setClientIds({ ...clientIds, [setup.id]: true });
       setClientId('');
+      setClientSecret('');
       setStatus({ kind: 'idle' });
     } catch (e) {
       toastError(t('Could not save the setting'), e);
@@ -196,15 +223,29 @@ function Form({ existing }: { existing: Account | null }) {
 
   const signIn = async () => {
     if (!provider?.oauth) return;
-    setStatus({ kind: 'busy', what: t('Waiting for the sign-in in your browser…') });
+    const name = provider.oauth === 'google' ? 'Google' : 'Microsoft';
+    setStatus({ kind: 'busy', what: t('Waiting for the sign-in…') });
+    // Closing the sign-in window by hand ends the wait here; the backend's own wait just times out.
+    let cancel = () => {};
+    const closed = new Promise<'closed'>((resolve) => (cancel = () => resolve('closed')));
+    const unlisten = await api.onSignInClosed(() => cancel());
     try {
       const flow = await api.oauthStart(provider.oauth, form.email);
-      await openUrl(flow.url);
-      await api.oauthWait(flow.flowId);
-      setOauthFlow(flow.flowId);
+      await api.openSignIn(flow.url, {
+        title: t('Sign in to {provider}', { provider: name }),
+        openInBrowser: t('Open in browser'),
+      });
+      const outcome = await Promise.race([
+        api.oauthWait(flow.flowId).then(() => 'done' as const),
+        closed,
+      ]);
+      if (outcome === 'done') setOauthFlow(flow.flowId);
       setStatus({ kind: 'idle' });
     } catch (e) {
       setStatus({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+    } finally {
+      unlisten();
+      void api.closeSignIn();
     }
   };
 
@@ -316,48 +357,45 @@ function Form({ existing }: { existing: Account | null }) {
         <Field label={t('Provider')}>
           <Select
             value={form.provider}
-            onChange={(e) => {
-              const p = providers.find((x) => x.id === e.target.value);
+            options={providers.map((p) => ({
+              value: p.id,
+              label: p.id === 'custom' ? t('Other (IMAP / SMTP)') : p.name,
+            }))}
+            onValueChange={(id) => {
+              const p = providers.find((x) => x.id === id);
               if (!p) return;
               manual.current = true;
               setForm((f) =>
                 p.id === 'custom'
                   ? { ...f, provider: 'custom', auth: 'password', oauthProvider: '' }
-                  : applyProvider(f, p),
+                  : applyProvider(f, p, !!clientIds?.[p.oauth]),
               );
             }}
-          >
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.id === 'custom' ? t('Other (IMAP / SMTP)') : p.name}
-              </option>
-            ))}
-          </Select>
+          />
         </Field>
 
         {provider?.oauth && !provider.oauthOnly && (
-          <div className="flex gap-4 text-sm" role="radiogroup" aria-label={t('Sign-in method')}>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                className="accent-[var(--accent)]"
-                checked={form.auth === 'password'}
-                onChange={() => patch({ auth: 'password', oauthProvider: '' })}
-              />
-              {t('App password')}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                className="accent-[var(--accent)]"
-                checked={form.auth === 'oauth'}
-                onChange={() => patch({ auth: 'oauth', oauthProvider: provider.oauth })}
-              />
-              {t('Sign in with {provider} (OAuth)', {
-                provider: provider.oauth === 'google' ? 'Google' : 'Microsoft',
-              })}
-            </label>
-          </div>
+          <RadioGroup
+            className="text-sm"
+            aria-label={t('Sign-in method')}
+            value={form.auth}
+            onValueChange={(v) =>
+              patch(
+                v === 'oauth'
+                  ? { auth: 'oauth', oauthProvider: provider.oauth }
+                  : { auth: 'password', oauthProvider: '' },
+              )
+            }
+            options={[
+              { value: 'password', label: t('App password') },
+              {
+                value: 'oauth',
+                label: t('Sign in with {provider} (OAuth)', {
+                  provider: provider.oauth === 'google' ? 'Google' : 'Microsoft',
+                }),
+              },
+            ]}
+          />
         )}
 
         {form.auth === 'password' ? (
@@ -414,7 +452,17 @@ function Form({ existing }: { existing: Account | null }) {
                   onChange={(e) => setClientId(e.target.value)}
                 />
               </Field>
-              <Button disabled={!clientId.trim()} onClick={() => void saveClientId()}>
+              {setup.needsSecret && (
+                <Field label={t('Client secret')} className="flex-1">
+                  <Input
+                    type="password"
+                    spellCheck={false}
+                    value={clientSecret}
+                    onChange={(e) => setClientSecret(e.target.value)}
+                  />
+                </Field>
+              )}
+              <Button disabled={!canSaveClient} onClick={() => void saveClientId()}>
                 {t('Save')}
               </Button>
             </div>
@@ -422,7 +470,7 @@ function Form({ existing }: { existing: Account | null }) {
         ) : (
           <div className="flex items-center gap-3 rounded-md border border-border bg-surface-muted p-3">
             <Button disabled={busy || !form.email.includes('@')} onClick={() => void signIn()}>
-              {oauthFlow ? t('Sign in again') : t('Sign in in the browser')}
+              {oauthFlow ? t('Sign in again') : t('Open the sign-in window')}
             </Button>
             <span className="text-xs text-muted-foreground">
               {oauthFlow
@@ -431,7 +479,9 @@ function Form({ existing }: { existing: Account | null }) {
                   ? t(
                       'Already signed in. Sign in again only if the sync reports a sign-in problem.',
                     )
-                  : t('Your browser opens for the sign-in; come back here afterwards.')}
+                  : t(
+                      'A sign-in window opens. If it will not sign you in, choose “Open in browser” in its menu.',
+                    )}
             </span>
           </div>
         )}

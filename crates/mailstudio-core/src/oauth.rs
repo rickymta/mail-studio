@@ -48,18 +48,44 @@ fn endpoints(provider: &str) -> Result<Endpoints> {
     }
 }
 
-/// `(client id, client secret)` the user configured for a provider.
+/// MailStudio's own Google OAuth client (type "Desktop app"), used when the user has not set one.
+const GOOGLE_CLIENT_ID: &str =
+    "973790687203-3rfcg9dth8aj9e26ecoie9ef4gq3hqu5.apps.googleusercontent.com";
+/// Its secret is read from the build environment (a GitHub Actions secret for releases). Google
+/// treats an installed app's secret as public, since it ships inside the app anyway, but it is
+/// kept out of the repository. Builds without it simply have no built-in Google client.
+const GOOGLE_CLIENT_SECRET: Option<&str> = option_env!("MAILSTUDIO_GOOGLE_CLIENT_SECRET");
+
+/// The client this build ships for a provider, if any.
+fn builtin(provider: &str) -> Option<(&'static str, &'static str)> {
+    match provider {
+        "google" => GOOGLE_CLIENT_SECRET
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| (GOOGLE_CLIENT_ID, s.trim())),
+        _ => None,
+    }
+}
+
+/// Whether this build ships its own client for `provider`, so sign-in works with no setup.
+pub fn has_builtin_client(provider: &str) -> bool {
+    builtin(provider).is_some()
+}
+
+/// `(client id, client secret)` for a provider: the one the user configured, else the built-in one.
 fn client(provider: &str) -> Result<(String, Option<String>)> {
-    let id = db::with(|c| db::kv_get(c, &format!("oauth.{provider}.clientId")))?
-        .filter(|v| !v.trim().is_empty())
-        .ok_or_else(|| {
-            Error::invalid(
-                "No OAuth client ID is configured for this provider. Add one in Settings → \
-                 Sign-in (OAuth).",
-            )
-        })?;
-    let secret = secrets::get(&secrets::client_secret_key(provider))?.filter(|v| !v.is_empty());
-    Ok((id.trim().to_string(), secret))
+    let configured = db::with(|c| db::kv_get(c, &format!("oauth.{provider}.clientId")))?
+        .filter(|v| !v.trim().is_empty());
+    if let Some(id) = configured {
+        let secret = secrets::get(&secrets::client_secret_key(provider))?.filter(|v| !v.is_empty());
+        return Ok((id.trim().to_string(), secret));
+    }
+    let (id, secret) = builtin(provider).ok_or_else(|| {
+        Error::invalid(
+            "No OAuth client ID is configured for this provider. Add one in Settings → \
+             Sign-in (OAuth).",
+        )
+    })?;
+    Ok((id.to_string(), Some(secret.to_string())))
 }
 
 #[derive(Debug, Clone)]

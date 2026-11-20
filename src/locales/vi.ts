@@ -52,9 +52,9 @@ export const vi: Record<string, string> = {
   '1 account': '1 tài khoản',
   'All your mail, together': 'Tất cả thư trong một nơi',
   'One inbox for every account.': 'Một hộp thư cho mọi tài khoản.',
-  'Private by default': 'Riêng tư ngay từ đầu',
-  'Remote images stay blocked until you allow them.':
-    'Chỉ tải hình ảnh bên ngoài khi bạn cho phép.',
+  'Safe to read': 'Đọc thư an toàn',
+  'Messages are cleaned before they are shown; remote images can be turned off in Settings.':
+    'Thư được làm sạch trước khi hiển thị; có thể tắt ảnh từ internet trong Cài đặt.',
   'Work at your pace': 'Làm việc theo cách của bạn',
   'Use keyboard shortcuts to move through your inbox.': 'Dùng phím tắt để duyệt hộp thư nhanh hơn.',
   'Test account': 'Kiểm tra tài khoản',
@@ -103,8 +103,8 @@ export const vi: Record<string, string> = {
   'Check your connection and account settings, then sync again. Activity Logs show operation outcomes; account settings show the latest server error.':
     'Kiểm tra kết nối và cài đặt tài khoản, sau đó đồng bộ lại. Nhật ký hiển thị kết quả thao tác; cài đặt tài khoản hiển thị lỗi máy chủ gần nhất.',
   Privacy: 'Quyền riêng tư',
-  'Remote images are blocked by default. You can load them for a message or change this in Settings.':
-    'Mặc định chặn hình ảnh bên ngoài. Bạn có thể tải ảnh cho từng thư hoặc thay đổi trong Cài đặt.',
+  'Remote images load by default. Turn off “Always show remote images” in Settings to hide them until you choose Show images, so senders cannot tell when you open a message.':
+    'Mặc định ảnh từ internet được tải. Tắt “Luôn hiện ảnh từ internet” trong Cài đặt để ẩn ảnh cho tới khi bạn bấm Hiện ảnh, để người gửi không biết khi nào bạn mở thư.',
   'Toggle star': 'Bật/tắt dấu sao',
   'Toggle read status': 'Đổi trạng thái đã đọc',
   'Activity Logs': 'Nhật ký hoạt động',
@@ -234,11 +234,13 @@ export const vi: Record<string, string> = {
   Message: 'Nội dung thư',
   'Message sent': 'Đã gửi thư',
   'Message source': 'Mã nguồn thư',
+  'MailStudio’s own {provider} client is used, so no setup is needed. Fill these in only to use your own.':
+    'Đang dùng client {provider} có sẵn của MailStudio, không cần thiết lập. Chỉ điền các ô này nếu muốn dùng client riêng.',
   Messages: 'Danh sách thư',
   'More actions': 'Thao tác khác',
   'Move to': 'Chuyển tới',
-  'Your browser opens for the sign-in; come back here afterwards.':
-    'Trình duyệt sẽ mở để đăng nhập; xong thì quay lại đây.',
+  'A sign-in window opens. If it will not sign you in, choose “Open in browser” in its menu.':
+    'Cửa sổ đăng nhập sẽ mở. Nếu không đăng nhập được trong đó, chọn “Mở bằng trình duyệt” trên menu của nó.',
   '{provider} sign-in needs a one-time setup': 'Đăng nhập {provider} cần thiết lập một lần',
   '{provider} only lets registered apps read mail, and MailStudio does not ship with a registration. Register one yourself (free, a few minutes):':
     '{provider} chỉ cho ứng dụng đã đăng ký đọc thư, và MailStudio không kèm sẵn đăng ký nào. Hãy tự đăng ký một ứng dụng (miễn phí, mất vài phút):',
@@ -287,7 +289,6 @@ export const vi: Record<string, string> = {
   Reply: 'Trả lời',
   'Reply all': 'Trả lời tất cả',
   'Reply to': 'Trả lời tới',
-  'Same as the system': 'Theo hệ thống',
   Save: 'Lưu',
   'Save as…': 'Lưu thành…',
   'Save attachment': 'Lưu tệp đính kèm',
@@ -309,7 +310,9 @@ export const vi: Record<string, string> = {
   'Show more': 'Hiện thêm',
   'Shown to the people you write to': 'Hiển thị với người nhận thư của bạn',
   'Sign in again': 'Đăng nhập lại',
-  'Sign in in the browser': 'Đăng nhập trong trình duyệt',
+  'Open the sign-in window': 'Mở cửa sổ đăng nhập',
+  'Open in browser': 'Mở bằng trình duyệt',
+  'Sign in to {provider}': 'Đăng nhập {provider}',
   'Sign in with {provider} (OAuth)': 'Đăng nhập bằng {provider} (OAuth)',
   'Sign-in (OAuth)': 'Đăng nhập (OAuth)',
   'Sign-in method': 'Cách đăng nhập',
@@ -344,7 +347,7 @@ export const vi: Record<string, string> = {
     'Thường là địa chỉ e-mail đầy đủ. Để trống = địa chỉ ở trên.',
   'Version {v}': 'Phiên bản {v}',
   'View source': 'Xem mã nguồn',
-  'Waiting for the sign-in in your browser…': 'Đang chờ bạn đăng nhập trong trình duyệt…',
+  'Waiting for the sign-in…': 'Đang chờ bạn đăng nhập…',
   'Web address': 'Địa chỉ web',
   'Welcome to MailStudio': 'Chào mừng đến với MailStudio',
   'Your name': 'Tên của bạn',
