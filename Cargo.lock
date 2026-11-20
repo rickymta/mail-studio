@@ -2604,7 +2604,7 @@ dependencies = [
 
 [[package]]
 name = "mailstudio"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "axum",
  "mailstudio-core",
@@ -2620,7 +2620,7 @@ dependencies = [
 
 [[package]]
 name = "mailstudio-core"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "ammonia",
  "async-imap",
