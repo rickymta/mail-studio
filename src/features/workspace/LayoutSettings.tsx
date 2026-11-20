@@ -1,4 +1,3 @@
-import { useAccountLayout } from '@/stores/accountLayout';
 import { Columns2, Rows2, RotateCcw } from 'lucide-react';
 import { Button, cn } from '@/components/ui';
 import { t } from '@/lib/i18n';
@@ -14,10 +13,9 @@ export function LayoutSettings() {
           'Drag the dividers between panes to resize them. Double-click a divider to restore its default size. Your layout is saved automatically.',
         )}
       </p>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {(
           [
-            { mode: 'accounts', Icon: Columns2, label: t('Accounts side by side') },
             { mode: 'columns', Icon: Columns2, label: t('Side by side') },
             { mode: 'rows', Icon: Rows2, label: t('Reading pane below') },
           ] as const
@@ -52,35 +50,25 @@ export function LayoutSettings() {
           ['rowHeight', t('Message row height'), 80, 128, 'px'],
           ['attachments', t('Attachment panel height'), 100, 400, 'px'],
         ] as const
-      )
-        .filter(
-          ([key]) => prefs.mode !== 'accounts' || key === 'rowHeight' || key === 'attachments',
-        )
-        .map(([key, label, min, max, unit]) => (
-          <label key={key} className="flex flex-col gap-2">
-            <span className="flex justify-between gap-2 text-sm">
-              <span>{label}</span>
-              <span className="text-muted-foreground tabular-nums">
-                {prefs[key]} {unit}
-              </span>
+      ).map(([key, label, min, max, unit]) => (
+        <label key={key} className="flex flex-col gap-2">
+          <span className="flex justify-between gap-2 text-sm">
+            <span>{label}</span>
+            <span className="text-muted-foreground tabular-nums">
+              {prefs[key]} {unit}
             </span>
-            <input
-              type="range"
-              min={min}
-              max={max}
-              value={prefs[key]}
-              onChange={(e) => update({ [key]: Number(e.target.value) })}
-              className="w-full accent-[var(--accent)]"
-            />
-          </label>
-        ))}
-      <Button
-        className="self-start"
-        onClick={() => {
-          useLayout.getState().reset();
-          useAccountLayout.getState().reset();
-        }}
-      >
+          </span>
+          <input
+            type="range"
+            min={min}
+            max={max}
+            value={prefs[key]}
+            onChange={(e) => update({ [key]: Number(e.target.value) })}
+            className="w-full accent-[var(--accent)]"
+          />
+        </label>
+      ))}
+      <Button className="self-start" onClick={() => useLayout.getState().reset()}>
         <RotateCcw className="size-4" />
         {t('Reset layout')}
       </Button>

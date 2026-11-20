@@ -1,5 +1,3 @@
-import { focusedMailbox } from '@/stores/mailboxContext';
-import { useLayout } from '@/stores/layout';
 import { MailPlus, Inbox, ShieldCheck, Keyboard } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
@@ -24,9 +22,7 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>) {
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       if (useCompose.getState().draft || useUi.getState().dialog || useUi.getState().prompt) return;
       if (document.querySelector('[role="dialog"], [role="menu"]')) return;
-      const focused = useLayout.getState().prefs.mode === 'accounts' ? focusedMailbox() : null;
-      if (useLayout.getState().prefs.mode === 'accounts' && !focused) return;
-      const mail = (focused?.store ?? useMail).getState();
+      const mail = useMail.getState();
       const compose = useCompose.getState();
       const ids = mail.targets();
       const detail = mail.detail;
@@ -38,7 +34,7 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>) {
         case 'c':
           return run(() => compose.newMessage([], mail.scopeAccountId));
         case '/':
-          return run(() => (focused?.search ?? searchRef).current?.focus());
+          return run(() => searchRef.current?.focus());
         case 'j':
         case 'ArrowDown':
           return run(() => mail.step(1));

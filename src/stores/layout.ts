@@ -6,7 +6,7 @@ export interface LayoutPrefs {
   listHeight: number;
   attachments: number;
   rowHeight: number;
-  mode: 'columns' | 'rows' | 'accounts';
+  mode: 'columns' | 'rows';
 }
 export const DEFAULT_LAYOUT: LayoutPrefs = {
   sidebar: 232,
@@ -14,7 +14,7 @@ export const DEFAULT_LAYOUT: LayoutPrefs = {
   listHeight: 42,
   attachments: 180,
   rowHeight: 88,
-  mode: 'accounts',
+  mode: 'columns',
 };
 export const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 export function normalizeLayout(value: Partial<LayoutPrefs>): LayoutPrefs {
@@ -28,7 +28,7 @@ export function normalizeLayout(value: Partial<LayoutPrefs>): LayoutPrefs {
     listHeight: number('listHeight', 25, 70),
     attachments: number('attachments', 100, 400),
     rowHeight: number('rowHeight', 80, 128),
-    mode: value.mode === 'columns' || value.mode === 'rows' ? value.mode : 'accounts',
+    mode: value.mode === 'rows' ? 'rows' : 'columns',
   };
 }
 const KEY = 'mailstudio.layout';

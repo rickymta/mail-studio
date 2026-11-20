@@ -5,6 +5,17 @@ export const vi: Record<string, string> = {
   'Previous page': 'Trang trước',
   'Next page': 'Trang sau',
   'Page {n} of {total}': 'Trang {n} / {total}',
+  Mail: 'Thư',
+  Navigation: 'Di chuyển',
+  'Next message': 'Thư kế tiếp',
+  'Previous message': 'Thư trước',
+  'Close the message or clear the selection': 'Đóng thư hoặc bỏ chọn',
+  Application: 'Ứng dụng',
+  'Reset zoom': 'Đặt lại thu phóng',
+  'Filter shortcuts': 'Lọc phím tắt',
+  'No matching shortcuts': 'Không có phím tắt phù hợp',
+  or: 'hoặc',
+  '{n} unread': '{n} chưa đọc',
   'Zoom out': 'Thu nhỏ',
   'Zoom in': 'Phóng to',
   'Could not preview the PDF. Save it to open it in another application.':
@@ -37,11 +48,6 @@ export const vi: Record<string, string> = {
   'Message row height': 'Chiều cao dòng thư',
   'Reset layout': 'Khôi phục bố cục',
   Layout: 'Bố cục',
-  'Accounts side by side': 'Nhiều tài khoản cạnh nhau',
-  'Mailbox for {account}': 'Hộp thư của {account}',
-  'Each account keeps its own search and open message.':
-    'Mỗi tài khoản có tìm kiếm và thư đang mở riêng.',
-  'Width of {account}': 'Độ rộng khung {account}',
 
   '1 operation': '1 thao tác',
   '1 account': '1 tài khoản',
@@ -243,7 +249,6 @@ export const vi: Record<string, string> = {
   'New folder…': 'Thư mục mới…',
   'New message': 'Thư mới',
   'New subfolder…': 'Thư mục con mới…',
-  'Next / previous message': 'Thư kế tiếp / thư trước',
   'No accounts yet.': 'Chưa có tài khoản nào.',
   'No drafts. Messages you start writing are kept here.':
     'Chưa có thư nháp. Thư bạn đang viết dở sẽ được giữ ở đây.',
@@ -261,7 +266,6 @@ export const vi: Record<string, string> = {
   'One mail client for all your accounts: Gmail, Outlook, Yahoo, iCloud, Zoho and any IMAP/SMTP server.':
     'Một ứng dụng thư cho mọi tài khoản của bạn: Gmail, Outlook, Yahoo, iCloud, Zoho và mọi máy chủ IMAP/SMTP.',
   'Only when I press Sync': 'Chỉ khi tôi bấm Đồng bộ',
-  Sync: 'Đồng bộ',
   'Open the provider’s page': 'Mở trang của nhà cung cấp',
   'Other (IMAP / SMTP)': 'Khác (IMAP / SMTP)',
   'Outgoing mail server (SMTP)': 'Máy chủ thư đi (SMTP)',

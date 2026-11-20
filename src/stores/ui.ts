@@ -67,7 +67,8 @@ function loadPrefs(): Prefs {
   }
 }
 
-export type DialogName = 'settings' | 'account' | 'activity' | 'help' | 'about' | 'layout' | null;
+export type DialogName =
+  'settings' | 'account' | 'activity' | 'help' | 'shortcuts' | 'about' | 'layout' | null;
 
 interface UiStore {
   toasts: Toast[];

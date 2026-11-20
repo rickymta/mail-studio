@@ -26,11 +26,23 @@ khác. Viết bằng Rust + Tauri 2, chạy trên Windows, macOS và Linux.
 
 ## Tiện ích giao diện
 
-Thanh trạng thái luôn có **Nhật ký hoạt động**, **phiên bản**, **Trợ giúp** và **Cài đặt**, kể cả trước khi thêm tài khoản.
-
-- **Ctrl+Shift+L** mở nhật ký: tìm kiếm, lọc thành công/thất bại, sao chép kết quả đang lọc và xóa lịch sử có xác nhận. Lưu tối đa 500 thao tác trong localStorage của ứng dụng; chỉ ghi tên thao tác, kết quả, thời điểm và thời gian xử lý, không ghi nội dung thư, địa chỉ hay mật khẩu. Lịch sử mới bắt đầu từ khi dùng phiên bản có tính năng này.
-- **F1 / Ctrl+/** mở hướng dẫn kết nối tài khoản, tổ chức thư, xử lý lỗi đồng bộ và bảng phím tắt. Hiện chưa có chức năng gửi yêu cầu hỗ trợ trực tiếp.
+- **Cột tài khoản** ở mép trái: mỗi tài khoản là một ô vuông bo nhẹ mang chữ viết tắt và màu của tài khoản, kèm huy hiệu số thư chưa đọc trong Hộp thư đến (tối đa `99+`). Bấm vào để mở Hộp thư đến của tài khoản đó; ô trên cùng là "Tất cả hộp thư đến".
+- **Bố cục**: khung đọc nằm bên phải hoặc bên dưới; kéo vách ngăn để đổi kích thước, nhấp đúp để về mặc định.
+- **Thanh trạng thái** luôn có Bố cục, Nhật ký hoạt động, Phím tắt, thu phóng, phiên bản, Trợ giúp và Cài đặt.
+- **Ctrl+/** mở cửa sổ phím tắt (có ô lọc); **F1** mở trợ giúp; **Ctrl+Shift+L** mở nhật ký hoạt động (tìm kiếm, lọc, sao chép, xoá; lưu 500 thao tác gần nhất trên máy, không ghi nội dung thư, địa chỉ hay mật khẩu).
+- **Ctrl + / Ctrl - / Ctrl 0** phóng to, thu nhỏ, đặt lại cỡ giao diện (60–200%).
+- Các phím **F1–F12** và **Ctrl+R** không còn kích hoạt hành vi mặc định của webview (F5 tải lại ứng dụng, F3 tìm kiếm, F12 công cụ nhà phát triển…).
+- Xem trước tệp đính kèm ngay trong ứng dụng: ảnh, văn bản, âm thanh, video và PDF (tối đa 20 MB).
 - Nhấn **phiên bản** để xem thông tin ứng dụng và thư mục dữ liệu. Chưa có kiểm tra/cài đặt cập nhật tự động.
+
+## Phát hành
+
+```bash
+pnpm release patch            # hoặc minor | major | x.y.z, thêm --dry-run để xem trước
+pnpm check:version            # kiểm tra 3 file phiên bản khớp nhau
+```
+
+Script tăng phiên bản đồng bộ ở `package.json`, `Cargo.toml` và `src-tauri/tauri.conf.json`, ghi `CHANGELOG.md` từ lịch sử commit, tạo commit `chore(release): vX.Y.Z` và tag — không tự push.
 
 ## Chạy thử
 

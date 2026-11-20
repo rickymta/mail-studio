@@ -8,11 +8,17 @@ import {
   AlertCircle,
   Copy,
   Trash2,
+  Keyboard,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, Input, Modal, Select, cn } from '@/components/ui';
 import { LayoutSettings } from './LayoutSettings';
 import { About } from '@/features/settings/Settings';
+import { ShortcutsWindow } from '@/features/shortcuts/ShortcutsWindow';
+import { globalAction, isBrowserKey } from '@/features/shortcuts/shortcuts';
+import { ZOOM_MAX, ZOOM_MIN, useZoom } from '@/stores/zoom';
 import { t } from '@/lib/i18n';
 import { copyText } from '@/lib/native';
 import { useActivity } from '@/stores/activity';
@@ -201,32 +207,11 @@ function Help() {
           <p className="m-0 text-sm leading-relaxed text-muted-foreground">{body}</p>
         </section>
       ))}
-      <section>
-        <h3 className="m-0 mb-2 text-sm font-semibold">{t('Keyboard shortcuts')}</h3>
-        <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 rounded-lg border border-border p-3 text-xs">
-          {[
-            [t('Compose'), 'C'],
-            [t('Search messages'), '/'],
-            [t('Next / previous message'), 'J / K'],
-            [t('Reply'), 'R'],
-            [t('Reply all'), 'A'],
-            [t('Forward'), 'F'],
-            [t('Archive'), 'E'],
-            [t('Delete'), 'Delete'],
-            [t('Toggle star'), 'S'],
-            [t('Toggle read status'), 'U'],
-            [t('Send'), 'Ctrl+Enter'],
-            [t('Activity Logs'), 'Ctrl+Shift+L'],
-            [t('Help'), 'F1 / Ctrl+/'],
-          ].map(([label, key]) => (
-            <div key={key} className="contents">
-              <span>{label}</span>
-              <kbd className="rounded bg-surface-muted px-2 font-mono">{key}</kbd>
-            </div>
-          ))}
-        </div>
-      </section>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => useUi.getState().openDialog('shortcuts')}>
+          <Keyboard className="size-4" />
+          {t('Keyboard shortcuts')}
+        </Button>
         <Button onClick={() => useUi.getState().openDialog('settings')}>{t('Settings')}</Button>
         <Button onClick={() => useUi.getState().openDialog('activity')}>
           {t('Activity Logs')}
@@ -242,22 +227,26 @@ export function WorkspaceBar() {
   const dialog = useUi((s) => s.dialog);
   const open = useUi((s) => s.openDialog);
   const errors = accounts.some((a) => a.lastError);
+  const zoom = useZoom((s) => s.zoom);
   useEffect(() => {
     const listener = (e: KeyboardEvent) => {
-      if (e.altKey || e.repeat) return;
-      const target =
-        e.key === 'F1' || ((e.ctrlKey || e.metaKey) && e.key === '/')
-          ? 'help'
-          : (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'l'
-            ? 'activity'
-            : null;
-      if (!target) return;
-      e.preventDefault();
-      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
-      open(target);
+      const action = globalAction(e);
+      // Also stops the webview's own handling: F5 / Ctrl+R reload, F3 find, F7, F12…
+      if (action || isBrowserKey(e)) e.preventDefault();
+      if (!action) return;
+      if (action === 'zoomIn') return useZoom.getState().step(1);
+      if (action === 'zoomOut') return useZoom.getState().step(-1);
+      if (action === 'zoomReset') return useZoom.getState().set(1);
+      if (e.repeat) return;
+      // The same key closes its own window; any other dialog or menu keeps the focus.
+      if (useUi.getState().dialog === action) return open(null);
+      if (useUi.getState().prompt || document.querySelector('[role="dialog"], [role="menu"]'))
+        return;
+      open(action);
     };
-    window.addEventListener('keydown', listener);
-    return () => window.removeEventListener('keydown', listener);
+    // Capture phase, so an input or the message frame cannot let a reload through.
+    window.addEventListener('keydown', listener, true);
+    return () => window.removeEventListener('keydown', listener, true);
   }, [open]);
   return (
     <>
@@ -290,6 +279,46 @@ export function WorkspaceBar() {
           <Activity className="size-3.5" />
           {t('Activity Logs')}
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => open('shortcuts')}
+          title="Ctrl+/"
+          aria-label={t('Keyboard shortcuts')}
+        >
+          <Keyboard className="size-3.5" />
+        </Button>
+        <span className="flex items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={zoom <= ZOOM_MIN}
+            onClick={() => useZoom.getState().step(-1)}
+            title="Ctrl+-"
+            aria-label={t('Zoom out')}
+          >
+            <Minus className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="tabular-nums"
+            onClick={() => useZoom.getState().set(1)}
+            title={`${t('Reset zoom')} (Ctrl+0)`}
+          >
+            {Math.round(zoom * 100)}%
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={zoom >= ZOOM_MAX}
+            onClick={() => useZoom.getState().step(1)}
+            title="Ctrl++"
+            aria-label={t('Zoom in')}
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </span>
         <Button
           variant="ghost"
           size="sm"
@@ -326,6 +355,14 @@ export function WorkspaceBar() {
         width={640}
       >
         {dialog === 'help' && <Help />}
+      </Modal>
+      <Modal
+        open={dialog === 'shortcuts'}
+        onClose={() => open(null)}
+        title={t('Keyboard shortcuts')}
+        width={640}
+      >
+        {dialog === 'shortcuts' && <ShortcutsWindow />}
       </Modal>
       <Modal open={dialog === 'layout'} onClose={() => open(null)} title={t('Layout')} width={520}>
         {dialog === 'layout' && <LayoutSettings />}

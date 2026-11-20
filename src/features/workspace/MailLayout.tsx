@@ -1,8 +1,8 @@
-import { AccountWorkspace } from './AccountWorkspace';
 import { useEffect, useRef, useState } from 'react';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { MessageList } from '@/features/list/MessageList';
 import { Reader } from '@/features/reader/Reader';
+import { AccountRail } from '@/features/sidebar/AccountRail';
 import { Sidebar } from '@/features/sidebar/Sidebar';
 import { t } from '@/lib/i18n';
 import { DEFAULT_LAYOUT, useLayout } from '@/stores/layout';
@@ -21,13 +21,13 @@ export function MailLayout({ searchRef }: { searchRef: React.RefObject<HTMLInput
     observer.observe(el);
     return () => observer.disconnect();
   }, [prefs.mode]);
-  if (prefs.mode === 'accounts') return <AccountWorkspace />;
   const rows = prefs.mode === 'rows';
   return (
     <div
       className="mail-layout flex min-h-0 flex-1"
-      style={{ minWidth: prefs.sidebar + (rows ? 440 : prefs.list + 380) + 12 }}
+      style={{ minWidth: prefs.sidebar + (rows ? 440 : prefs.list + 380) + 68 }}
     >
+      <AccountRail />
       <div className="pane sidebar-pane" style={{ width: prefs.sidebar }}>
         <Sidebar />
       </div>

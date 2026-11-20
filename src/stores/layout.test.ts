@@ -10,9 +10,9 @@ describe('layout preferences', () => {
       listHeight: DEFAULT_LAYOUT.listHeight,
     });
   });
-  it('keeps the multi-account layout and restores defaults for missing settings', () => {
+  it('restores defaults for missing settings', () => {
     expect(normalizeLayout({})).toEqual(DEFAULT_LAYOUT);
     expect(normalizeLayout({ mode: 'rows' }).mode).toBe('rows');
-    expect(normalizeLayout({ mode: 'accounts' }).mode).toBe('accounts');
+    expect(normalizeLayout({ mode: 'accounts' as never }).mode).toBe('columns');
   });
 });

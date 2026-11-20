@@ -221,29 +221,9 @@ export function About() {
       <p className="m-0 text-xs text-muted-foreground">
         {t('Passwords are kept in the system keychain, never in that folder.')}
       </p>
-      <div className="mt-2 text-xs text-muted-foreground">
-        <b>{t('Keyboard shortcuts')}</b>
-        <div className="mt-1 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
-          {(
-            [
-              ['C', t('Compose')],
-              ['R / A / F', `${t('Reply')} / ${t('Reply all')} / ${t('Forward')}`],
-              ['J / K', t('Next / previous message')],
-              ['E', t('Archive')],
-              ['Delete', t('Delete')],
-              ['S', t('Add star')],
-              ['U', t('Mark as unread')],
-              ['/', t('Search messages')],
-              ['Ctrl+Enter', t('Send')],
-            ] as const
-          ).map(([k, label]) => (
-            <div key={k} className="contents">
-              <kbd className="font-mono">{k}</kbd>
-              <span>{label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Button className="mt-2 self-start" onClick={() => useUi.getState().openDialog('shortcuts')}>
+        {t('Keyboard shortcuts')} (Ctrl+/)
+      </Button>
     </div>
   );
 }
