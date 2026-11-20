@@ -1,5 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
+import { operationLabels, useActivity } from '@/stores/activity';
+
 import type * as T from './types';
 
 const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -24,9 +26,17 @@ export function toError(e: unknown): IpcError {
 
 /** Call one backend command (Tauri in the app, the dev HTTP bridge in a plain browser). */
 export async function call<R>(cmd: string, args: Record<string, unknown> = {}): Promise<R> {
+  const start = performance.now();
+  const label = operationLabels[cmd];
+  const record = (status: 'finished' | 'failed') => {
+    if (label)
+      useActivity.getState().log({ label, status, ms: Math.round(performance.now() - start) });
+  };
   try {
     if (inTauri) {
-      return await invoke<R>('call', { cmd, args });
+      const result = await invoke<R>('call', { cmd, args });
+      record('finished');
+      return result;
     }
     const res = await fetch(BRIDGE, {
       method: 'POST',
@@ -35,8 +45,10 @@ export async function call<R>(cmd: string, args: Record<string, unknown> = {}): 
     });
     const body = await res.json();
     if (!res.ok) throw body;
+    record('finished');
     return body as R;
   } catch (e) {
+    record('failed');
     throw toError(e);
   }
 }
@@ -87,6 +99,11 @@ export const api = {
   remove: (ids: number[]) => call<null>('msg.delete', { ids }),
   loadOlder: (folderId: number) => call<number>('msg.loadOlder', { folderId }),
 
+  previewAttachment: (id: number, index: number) =>
+    call<{ name: string; mime: string; size: number; base64: string }>('attachment.preview', {
+      id,
+      index,
+    }),
   saveAttachment: (id: number, index: number, path: string) =>
     call<null>('attachment.save', { id, index, path }),
   /** Open with the default application (desktop app only). */

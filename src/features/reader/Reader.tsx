@@ -1,33 +1,31 @@
 import {
   Archive,
   Code2,
-  Download,
-  File,
   FolderInput,
   Forward,
   ImageOff,
   Mail,
   MailOpen,
   MoreHorizontal,
-  Paperclip,
   Reply,
   ReplyAll,
   ShieldAlert,
   Star,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
-import { Avatar, Button, IconButton, Menu, Modal, RightClick, Spinner } from '@/components/ui';
+import { Avatar, Button, IconButton, Menu, Modal, Spinner } from '@/components/ui';
 import { moveItems } from '@/features/list/MessageList';
-import { displayName, formatFullDate, formatSize } from '@/lib/format';
+import { displayName, formatFullDate } from '@/lib/format';
 import { t, useLang } from '@/lib/i18n';
-import { api, isTauri } from '@/lib/ipc';
-import { copyText, pickSavePath } from '@/lib/native';
-import type { Addr, AttachmentInfo, Detail } from '@/lib/types';
+import { api } from '@/lib/ipc';
+import { copyText } from '@/lib/native';
+import type { Addr, Detail } from '@/lib/types';
 import { useCompose } from '@/stores/compose';
-import { useMail } from '@/stores/mail';
-import { toast, toastError, useUi } from '@/stores/ui';
+import { useMailboxStore } from '@/stores/mailboxContext';
+import { useUi } from '@/stores/ui';
+const Attachments = lazy(() => import('./Attachments').then((m) => ({ default: m.Attachments })));
 import { HtmlView } from './HtmlView';
 
 function People({ label, list }: { label: string; list: Addr[] }) {
@@ -43,66 +41,6 @@ function People({ label, list }: { label: string; list: Addr[] }) {
           </span>
         ))}
       </span>
-    </div>
-  );
-}
-
-async function saveAttachment(m: Detail, a: AttachmentInfo) {
-  const path = await pickSavePath(t('Save attachment'), a.name);
-  if (!path) return;
-  try {
-    await api.saveAttachment(m.id, a.index, path);
-    toast('success', t('Attachment saved'), path);
-  } catch (e) {
-    toastError(t('Could not save the attachment'), e);
-  }
-}
-
-async function openAttachment(m: Detail, a: AttachmentInfo) {
-  if (!isTauri) return saveAttachment(m, a);
-  try {
-    await api.openAttachment(m.id, a.index);
-  } catch (e) {
-    toastError(t('Could not open the attachment'), e);
-  }
-}
-
-function Attachments({ m }: { m: Detail }) {
-  const files = m.attachments.filter((a) => !a.inline);
-  if (!files.length) return null;
-  return (
-    <div className="mt-4">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <Paperclip className="size-3.5" />
-        {t('{n} attachments', { n: files.length })}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {files.map((a) => (
-          <RightClick
-            key={a.index}
-            items={() => [
-              { label: t('Open'), onSelect: () => void openAttachment(m, a), disabled: !isTauri },
-              { label: t('Save as…'), onSelect: () => void saveAttachment(m, a) },
-            ]}
-          >
-            <div className="flex max-w-72 items-center gap-2 rounded-md border border-border bg-surface py-1.5 pr-1 pl-2.5">
-              <File className="size-4 shrink-0 text-muted-foreground" />
-              <button
-                type="button"
-                className="min-w-0 flex-1 text-left"
-                title={t('Open {name}', { name: a.name })}
-                onClick={() => void openAttachment(m, a)}
-              >
-                <span className="block truncate">{a.name}</span>
-                <span className="block text-xs text-muted-foreground">{formatSize(a.size)}</span>
-              </button>
-              <IconButton label={t('Save as…')} onClick={() => void saveAttachment(m, a)}>
-                <Download className="size-4" />
-              </IconButton>
-            </div>
-          </RightClick>
-        ))}
-      </div>
     </div>
   );
 }
@@ -136,12 +74,13 @@ function SourceDialog({ id, onClose }: { id: number; onClose: () => void }) {
 }
 
 function Toolbar({ m }: { m: Detail }) {
+  const useMail = useMailboxStore();
   const s = useMail.getState();
   const compose = useCompose.getState();
   const [source, setSource] = useState(false);
   const inJunk = m.folderRole === 'junk';
   return (
-    <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border px-2">
+    <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-0.5 py-1 border-b border-border px-2">
       <Button variant="ghost" onClick={() => compose.reply(m, false)}>
         <Reply className="size-4" />
         {t('Reply')}
@@ -162,7 +101,7 @@ function Toolbar({ m }: { m: Detail }) {
         <Trash2 className="size-4" />
       </IconButton>
       <Menu
-        items={moveItems(m.accountId, [m.id])}
+        items={moveItems(m.accountId, [m.id], s)}
         trigger={
           <IconButton label={t('Move to')}>
             <FolderInput className="size-4" />
@@ -212,6 +151,7 @@ function Toolbar({ m }: { m: Detail }) {
 }
 
 function Message({ m }: { m: Detail }) {
+  const useMail = useMailboxStore();
   const lang = useLang();
   const alwaysImages = useUi((s) => s.prefs.remoteImages);
   const [allow, setAllow] = useState(false);
@@ -267,27 +207,31 @@ function Message({ m }: { m: Detail }) {
           )}
           <div className="mt-4 overflow-hidden rounded-md border border-border">
             <HtmlView
+              accountId={m.accountId}
               html={m.html}
               text={m.text}
               allowRemote={allow || alwaysImages}
               onBlocked={setBlocked}
             />
           </div>
-          <Attachments m={m} />
         </div>
       </div>
+      <Suspense fallback={null}>
+        <Attachments m={m} />
+      </Suspense>
     </>
   );
 }
 
 export function Reader() {
+  const useMail = useMailboxStore();
   useLang();
   const detail = useMail((s) => s.detail);
   const loading = useMail((s) => s.detailLoading);
   const error = useMail((s) => s.detailError);
   const activeId = useMail((s) => s.activeId);
   return (
-    <main className="flex min-w-0 flex-1 flex-col bg-background">
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
       {detail ? (
         // Keyed so per-message state (the "show images" choice) starts fresh.
         <Message key={detail.id} m={detail} />

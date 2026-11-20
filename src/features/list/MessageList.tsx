@@ -1,3 +1,5 @@
+import { useMailboxStore } from '@/stores/mailboxContext';
+import { useLayout } from '@/stores/layout';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Archive,
@@ -31,15 +33,13 @@ import { t, useLang } from '@/lib/i18n';
 import { api } from '@/lib/ipc';
 import type { Draft, Summary } from '@/lib/types';
 import { useCompose } from '@/stores/compose';
-import { accountColor, sortedFolders, useMail, type Filters } from '@/stores/mail';
+import { accountColor, sortedFolders, useMail, type MailStore, type Filters } from '@/stores/mail';
 
-const ROW = 68;
-
-function viewTitle(): string {
-  const { view, folders, accounts } = useMail.getState();
+function viewTitle(state: MailStore): string {
+  const { view, folders, accounts } = state;
   switch (view.kind) {
     case 'inbox':
-      return t('All inboxes');
+      return state.scopeAccountId === undefined ? t('All inboxes') : t('Inbox');
     case 'unread':
       return t('Unread');
     case 'flagged':
@@ -58,15 +58,18 @@ function viewTitle(): string {
 }
 
 /** "Move to" submenu for messages of one account. */
-export function moveItems(accountId: number, ids: number[]): MenuItem[] {
-  const { folders, moveTo } = useMail.getState();
+export function moveItems(
+  accountId: number,
+  ids: number[],
+  state: MailStore = useMail.getState(),
+): MenuItem[] {
+  const { folders, moveTo } = state;
   return sortedFolders(folders, accountId)
     .filter((f) => f.selectable)
     .map((f) => ({ label: folderLabel(f), onSelect: () => void moveTo(ids, f.id) }));
 }
 
-function rowMenu(m: Summary): MenuItem[] {
-  const s = useMail.getState();
+function rowMenu(m: Summary, s: MailStore): MenuItem[] {
   const ids = s.checked.includes(m.id) ? s.checked : [m.id];
   const inJunk = m.folderRole === 'junk';
   return [
@@ -89,7 +92,7 @@ function rowMenu(m: Summary): MenuItem[] {
     {
       label: t('Move to'),
       icon: <FolderInput className="size-3.5" />,
-      items: moveItems(m.accountId, ids),
+      items: moveItems(m.accountId, ids, s),
     },
     {
       label: inJunk ? t('Not spam') : t('Mark as spam'),
@@ -107,6 +110,7 @@ function rowMenu(m: Summary): MenuItem[] {
 }
 
 function MessageRow({ m, showAccount }: { m: Summary; showAccount: boolean }) {
+  const useMail = useMailboxStore();
   const lang = useLang();
   const active = useMail((s) => s.activeId === m.id);
   const checked = useMail((s) => s.checked.includes(m.id));
@@ -119,7 +123,7 @@ function MessageRow({ m, showAccount }: { m: Summary; showAccount: boolean }) {
   const avatarName = outgoing ? displayName(m.to[0]) : displayName(m.from);
 
   return (
-    <RightClick items={() => rowMenu(m)}>
+    <RightClick items={() => rowMenu(m, useMail.getState())}>
       <div
         role="option"
         aria-selected={active}
@@ -217,6 +221,17 @@ function MessageRow({ m, showAccount }: { m: Summary; showAccount: boolean }) {
             </button>
           </div>
           <div className="truncate text-xs text-muted-foreground">{m.snippet || ' '}</div>
+          {showAccount && (
+            <div className="mt-0.5 flex items-center gap-1 text-[11px] leading-3 text-muted-foreground">
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ background: accountColor(account) }}
+              />
+              <span className="truncate" title={account?.email}>
+                {account?.email}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </RightClick>
@@ -224,6 +239,7 @@ function MessageRow({ m, showAccount }: { m: Summary; showAccount: boolean }) {
 }
 
 function BulkBar() {
+  const useMail = useMailboxStore();
   const checked = useMail((s) => s.checked);
   const items = useMail((s) => s.items);
   const s = useMail.getState();
@@ -250,7 +266,7 @@ function BulkBar() {
       {oneAccount && picked[0] && (
         <Menu
           align="end"
-          items={moveItems(picked[0].accountId, checked)}
+          items={moveItems(picked[0].accountId, checked, s)}
           trigger={
             <IconButton label={t('Move to')}>
               <FolderInput className="size-4" />
@@ -272,14 +288,23 @@ const FILTERS: { key: keyof Filters; label: () => string }[] = [
 ];
 
 function DraftList() {
+  const useMail = useMailboxStore();
+  const scopeAccountId = useMail((s) => s.scopeAccountId);
   const lang = useLang();
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
   useEffect(() => {
-    const load = () => void api.drafts().then(setDrafts, () => setDrafts([]));
+    const load = () =>
+      void api.drafts().then(
+        (drafts) =>
+          setDrafts(
+            drafts.filter((d) => scopeAccountId === undefined || d.accountId === scopeAccountId),
+          ),
+        () => setDrafts([]),
+      );
     load();
     window.addEventListener('mailstudio:drafts', load);
     return () => window.removeEventListener('mailstudio:drafts', load);
-  }, []);
+  }, [scopeAccountId]);
   if (!drafts) return <Empty>{<Spinner />}</Empty>;
   if (!drafts.length)
     return <Empty>{t('No drafts. Messages you start writing are kept here.')}</Empty>;
@@ -325,6 +350,7 @@ export function MessageList({
 }: {
   searchRef: React.RefObject<HTMLInputElement | null>;
 }) {
+  const useMail = useMailboxStore();
   useLang();
   const items = useMail((s) => s.items);
   const total = useMail((s) => s.total);
@@ -335,6 +361,7 @@ export function MessageList({
   const anyChecked = useMail((s) => s.checked.length > 0);
   const accountCount = useMail((s) => s.accounts.length);
   const activeId = useMail((s) => s.activeId);
+  const rowHeight = useLayout((s) => s.prefs.rowHeight);
   const scroller = useRef<HTMLDivElement>(null);
   const hasFooter = view.kind !== 'drafts' && (items.length < total || view.kind === 'folder');
   const count = items.length + (hasFooter ? 1 : 0);
@@ -345,9 +372,13 @@ export function MessageList({
   const virtual = useVirtualizer({
     count,
     getScrollElement: () => scroller.current,
-    estimateSize: () => ROW,
+    estimateSize: () => rowHeight,
     overscan: 8,
   });
+
+  useEffect(() => {
+    virtual.measure();
+  }, [rowHeight, virtual]);
 
   // Keep the open message in sight when moving with the keyboard.
   useEffect(() => {
@@ -360,10 +391,12 @@ export function MessageList({
   const filtered = !!query.trim() || filters.unread || filters.flagged || filters.attachments;
 
   return (
-    <section className="flex w-[400px] shrink-0 flex-col border-r border-border bg-background">
+    <section className="message-list flex h-full min-h-0 w-full flex-col bg-surface">
       <header className="shrink-0 border-b border-border p-3 pb-2">
         <div className="flex items-baseline gap-2">
-          <h1 className="m-0 min-w-0 flex-1 truncate text-base font-semibold">{viewTitle()}</h1>
+          <h1 className="m-0 min-w-0 flex-1 truncate text-base font-semibold">
+            {viewTitle(useMail.getState())}
+          </h1>
           {view.kind !== 'drafts' && (
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
               {t('{n} messages', { n: total })}
@@ -451,7 +484,7 @@ export function MessageList({
                     top: 0,
                     left: 0,
                     right: 0,
-                    height: ROW,
+                    height: rowHeight,
                     transform: `translateY(${v.start}px)`,
                   }}
                 >

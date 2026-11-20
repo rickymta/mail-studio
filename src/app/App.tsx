@@ -1,14 +1,15 @@
-import { MailPlus } from 'lucide-react';
+import { focusedMailbox } from '@/stores/mailboxContext';
+import { useLayout } from '@/stores/layout';
+import { MailPlus, Inbox, ShieldCheck, Keyboard } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 import { Prompt, Toasts } from '@/components/Overlays';
 import { Button, Spinner } from '@/components/ui';
 import { AccountDialog } from '@/features/accounts/AccountDialog';
 import { Composer } from '@/features/compose/Composer';
-import { MessageList } from '@/features/list/MessageList';
-import { Reader } from '@/features/reader/Reader';
 import { SettingsDialog } from '@/features/settings/Settings';
-import { Sidebar } from '@/features/sidebar/Sidebar';
+import { WorkspaceBar } from '@/features/workspace/Workspace';
+import { MailLayout } from '@/features/workspace/MailLayout';
 import { t, useLang } from '@/lib/i18n';
 import { useCompose } from '@/stores/compose';
 import { useMail } from '@/stores/mail';
@@ -23,7 +24,9 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>) {
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       if (useCompose.getState().draft || useUi.getState().dialog || useUi.getState().prompt) return;
       if (document.querySelector('[role="dialog"], [role="menu"]')) return;
-      const mail = useMail.getState();
+      const focused = useLayout.getState().prefs.mode === 'accounts' ? focusedMailbox() : null;
+      if (useLayout.getState().prefs.mode === 'accounts' && !focused) return;
+      const mail = (focused?.store ?? useMail).getState();
       const compose = useCompose.getState();
       const ids = mail.targets();
       const detail = mail.detail;
@@ -33,9 +36,9 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>) {
       };
       switch (e.key) {
         case 'c':
-          return run(() => compose.newMessage());
+          return run(() => compose.newMessage([], mail.scopeAccountId));
         case '/':
-          return run(() => searchRef.current?.focus());
+          return run(() => (focused?.search ?? searchRef).current?.focus());
         case 'j':
         case 'ArrowDown':
           return run(() => mail.step(1));
@@ -73,7 +76,7 @@ function useShortcuts(searchRef: React.RefObject<HTMLInputElement | null>) {
 
 function Welcome() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+    <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-5 overflow-y-auto bg-surface p-8 text-center">
       <img src="/icon.png" alt="" width={72} height={72} />
       <h1 className="m-0 text-2xl font-semibold">{t('Welcome to MailStudio')}</h1>
       <p className="m-0 max-w-md text-muted-foreground">
@@ -85,6 +88,31 @@ function Welcome() {
         <MailPlus className="size-4" />
         {t('Add a mail account')}
       </Button>
+      <div className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
+        {(
+          [
+            [Inbox, t('All your mail, together'), t('One inbox for every account.')],
+            [
+              ShieldCheck,
+              t('Private by default'),
+              t('Remote images stay blocked until you allow them.'),
+            ],
+            [
+              Keyboard,
+              t('Work at your pace'),
+              t('Use keyboard shortcuts to move through your inbox.'),
+            ],
+          ] as const
+        ).map(([FeatureIcon, title, body]) => {
+          return (
+            <div key={title} className="rounded-xl border border-border bg-background p-4">
+              <FeatureIcon className="mb-3 size-5 text-accent" />
+              <h2 className="m-0 mb-1 text-sm font-semibold">{title}</h2>
+              <p className="m-0 text-xs leading-relaxed text-muted-foreground">{body}</p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -116,20 +144,19 @@ export function App() {
 
   return (
     // Keyed by language so every `t()` in the tree is evaluated again after a switch.
-    <div key={lang} className="flex h-full">
-      {!ready ? (
-        <div className="flex flex-1 items-center justify-center">
-          <Spinner className="size-6" />
-        </div>
-      ) : hasAccounts ? (
-        <>
-          <Sidebar />
-          <MessageList searchRef={searchRef} />
-          <Reader />
-        </>
-      ) : (
-        <Welcome />
-      )}
+    <div key={lang} className="flex h-full flex-col">
+      <div className="workspace flex min-h-0 flex-1 overflow-x-auto">
+        {!ready ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Spinner className="size-6" />
+          </div>
+        ) : hasAccounts ? (
+          <MailLayout searchRef={searchRef} />
+        ) : (
+          <Welcome />
+        )}
+      </div>
+      <WorkspaceBar />
       <Composer />
       <AccountDialog />
       <SettingsDialog />

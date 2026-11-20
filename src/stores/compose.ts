@@ -116,7 +116,7 @@ interface ComposeStore {
   sending: boolean;
   /** Bumped when a draft is opened, so the editor re-reads `draft.html`. */
   session: number;
-  newMessage: (to?: Addr[]) => void;
+  newMessage: (to?: Addr[], accountId?: number) => void;
   reply: (m: Detail, all: boolean) => void;
   forward: (m: Detail) => void;
   edit: (d: Draft) => void;
@@ -155,7 +155,7 @@ export const useCompose = create<ComposeStore>((set, get) => {
     sending: false,
     session: 0,
 
-    newMessage: (to = []) => begin(undefined, (a) => ({ ...blank(a), to })),
+    newMessage: (to = [], accountId) => begin(accountId, (a) => ({ ...blank(a), to })),
 
     reply: (m, all) =>
       begin(m.accountId, (a) => ({

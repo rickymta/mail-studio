@@ -24,6 +24,14 @@ khác. Viết bằng Rust + Tauri 2, chạy trên Windows, macOS và Linux.
 - **Tìm kiếm** trong thư đã đồng bộ (người gửi, người nhận, tiêu đề, trích đoạn) và bộ lọc nhanh.
 - Giao diện tiếng Việt / tiếng Anh, sáng / tối / theo hệ thống.
 
+## Tiện ích giao diện
+
+Thanh trạng thái luôn có **Nhật ký hoạt động**, **phiên bản**, **Trợ giúp** và **Cài đặt**, kể cả trước khi thêm tài khoản.
+
+- **Ctrl+Shift+L** mở nhật ký: tìm kiếm, lọc thành công/thất bại, sao chép kết quả đang lọc và xóa lịch sử có xác nhận. Lưu tối đa 500 thao tác trong localStorage của ứng dụng; chỉ ghi tên thao tác, kết quả, thời điểm và thời gian xử lý, không ghi nội dung thư, địa chỉ hay mật khẩu. Lịch sử mới bắt đầu từ khi dùng phiên bản có tính năng này.
+- **F1 / Ctrl+/** mở hướng dẫn kết nối tài khoản, tổ chức thư, xử lý lỗi đồng bộ và bảng phím tắt. Hiện chưa có chức năng gửi yêu cầu hỗ trợ trực tiếp.
+- Nhấn **phiên bản** để xem thông tin ứng dụng và thư mục dữ liệu. Chưa có kiểm tra/cài đặt cập nhật tự động.
+
 ## Chạy thử
 
 Cần Rust (≥ 1.90), Node.js và pnpm.

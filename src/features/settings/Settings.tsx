@@ -198,7 +198,7 @@ function OAuth({
   );
 }
 
-function About() {
+export function About() {
   const [info, setInfo] = useState<{ version: string; dataDir: string } | null>(null);
   useEffect(() => {
     api.info().then(setInfo, () => {});

@@ -14,7 +14,7 @@ const BASE_CSS = `
   padding: 16px 20px; overflow-x: auto; overflow-wrap: anywhere; user-select: text;
   transform: translateZ(0); border-radius: 6px; min-height: 40px;
 }
-.mail.plain { white-space: pre-wrap; font-size: 13.5px; }
+.mail.plain { background: var(--surface, #fff); color: var(--foreground, #1f2328); white-space: pre-wrap; font-size: 13.5px; }
 img { max-width: 100%; height: auto; }
 img[data-blocked] {
   display: inline-block; min-width: 20px; min-height: 20px; background: #eef0f3;
@@ -35,7 +35,9 @@ export function HtmlView({
   text,
   allowRemote,
   onBlocked,
+  accountId,
 }: {
+  accountId?: number;
   html: string | null;
   text?: string | null;
   allowRemote: boolean;
@@ -63,7 +65,7 @@ export function HtmlView({
       const href = a.getAttribute('href') ?? '';
       if (/^mailto:/i.test(href)) {
         const to = decodeURIComponent(href.slice(7).split('?')[0] ?? '');
-        useCompose.getState().newMessage(parseAddrList(to));
+        useCompose.getState().newMessage(parseAddrList(to), accountId);
       } else {
         void openUrl(href);
       }
@@ -72,7 +74,7 @@ export function HtmlView({
     return () => root.removeEventListener('click', onClick);
     // `onBlocked` is a state setter in every caller; leaving it out avoids re-rendering the body.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html, text, allowRemote]);
+  }, [html, text, allowRemote, accountId]);
 
   return <div ref={host} />;
 }

@@ -171,3 +171,65 @@ button {
     animation-duration: 0s !important;
   }
 }
+
+.pane {
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.resize-handle {
+  position: relative;
+  flex: none;
+  touch-action: none;
+  background: var(--background);
+  outline-offset: -2px;
+  z-index: 2;
+}
+.resize-x {
+  width: 6px;
+  cursor: col-resize;
+}
+.resize-y {
+  height: 6px;
+  cursor: row-resize;
+}
+.resize-handle span {
+  position: absolute;
+  border-radius: 4px;
+  background: var(--border);
+  transition: background 120ms;
+}
+.resize-x span {
+  width: 2px;
+  inset: 0 auto 0 2px;
+}
+.resize-y span {
+  height: 2px;
+  inset: 2px 0 auto 0;
+}
+.resize-handle:hover span,
+.resize-handle:focus-visible span,
+.resize-handle.is-resizing span {
+  background: var(--accent);
+}
+body[data-resizing='x'],
+body[data-resizing='x'] * {
+  cursor: col-resize !important;
+}
+body[data-resizing='y'],
+body[data-resizing='y'] * {
+  cursor: row-resize !important;
+}
+body[data-resizing] iframe,
+body[data-resizing] object {
+  pointer-events: none;
+}
+.mail-layout > div > main {
+  min-height: 120px;
+}
+.attachment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 8px;
+}

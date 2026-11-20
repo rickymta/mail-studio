@@ -9,3 +9,5 @@ src-tauri/gen/
 .env*.local
 .claude/worktrees/
 __pycache__/
+
+/public/pdfjs/

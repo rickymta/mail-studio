@@ -331,7 +331,11 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
+    <aside className="mail-sidebar flex h-full min-h-0 w-full flex-col bg-surface-muted">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
+        <img src="/icon.png" alt="" className="size-6" />
+        <span className="font-semibold tracking-tight">MailStudio</span>
+      </div>
       <div className="flex items-center gap-2 p-3">
         <button
           type="button"

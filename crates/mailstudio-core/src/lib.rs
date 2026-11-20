@@ -32,6 +32,7 @@ pub mod sync;
 
 use std::time::Duration;
 
+use base64::Engine;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
@@ -250,6 +251,27 @@ async fn attachment_bytes(args: &Value) -> Result<(String, Vec<u8>)> {
     Ok((name, data))
 }
 
+/// Return a bounded, in-memory payload for the built-in browser preview. No temporary file.
+async fn attachment_preview(args: &Value) -> Result<Value> {
+    let id: i64 = arg(args, "id")?;
+    let index: usize = arg(args, "index")?;
+    let m = db::with(|c| db::message(c, id))?;
+    let raw = sync::raw_message(&m).await?;
+    let (name, mime, data) = mime::attachment(&raw, index)
+        .ok_or_else(|| Error::NotFound("This attachment no longer exists".into()))?;
+    preview_payload(name, mime, &data)
+}
+
+fn preview_payload(name: String, mime: String, data: &[u8]) -> Result<Value> {
+    if data.len() > 20 * 1024 * 1024 {
+        return Err(Error::invalid(
+            "Preview is limited to 20 MB. Save the attachment to open it.",
+        ));
+    }
+    Ok(json!({ "name": name, "mime": mime, "size": data.len(),
+        "base64": base64::engine::general_purpose::STANDARD.encode(data) }))
+}
+
 /// Write an attachment to a temporary folder and return its path (to open it with the default
 /// application).
 async fn attachment_open(args: &Value) -> Result<Value> {
@@ -365,6 +387,7 @@ pub async fn dispatch(cmd: &str, args: Value) -> Result<Value> {
             std::fs::write(&path, data)?;
             Value::Null
         }
+        "attachment.preview" => attachment_preview(a).await?,
         "attachment.open" => attachment_open(a).await?,
         "attachment.describe" => json!(compose::describe_file(&arg::<String>(a, "path")?)?),
 
@@ -395,4 +418,35 @@ pub async fn dispatch(cmd: &str, args: Value) -> Result<Value> {
 
         other => return Err(Error::invalid(format!("Unknown command {other:?}"))),
     })
+}
+
+#[cfg(test)]
+mod preview_tests {
+    use super::*;
+
+    #[test]
+    fn preview_preserves_binary_bytes_and_mime() {
+        let data = [0, 127, 128, 255];
+        let value = preview_payload("test.png".into(), "image/png".into(), &data).unwrap();
+        assert_eq!(value["size"], 4);
+        assert_eq!(value["mime"], "image/png");
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD
+                .decode(value["base64"].as_str().unwrap())
+                .unwrap(),
+            data
+        );
+    }
+
+    #[test]
+    fn preview_rejects_large_payloads() {
+        assert!(
+            preview_payload(
+                "large.bin".into(),
+                "application/octet-stream".into(),
+                &vec![0; 20 * 1024 * 1024 + 1]
+            )
+            .is_err()
+        );
+    }
 }
