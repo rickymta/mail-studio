@@ -6,6 +6,7 @@ Các thay đổi đáng chú ý của MailStudio. File này do `pnpm release` c�
 
 Phát hành đầu tiên.
 
+- fix(imap): decode UTF-7 folder names with as_chunks (clippy on current stable Rust)
 - chore(ci): GitHub Actions for CI and tagged releases (6758435)
 - chore(release): v0.2.0 (ca959aa)
 - feat: dark message bodies, compact attachment strip, file icons for blocked pictures (290beae)
