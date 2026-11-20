@@ -2,6 +2,12 @@
 
 Các thay đổi đáng chú ý của MailStudio. File này do `pnpm release` cập nhật.
 
+## v0.2.0 - 2026-11-20
+
+Thay đổi từ v0.1.0.
+
+- feat: OAuth sign-in window with built-in Google client, Gmail-like message view, themed controls (c1d45d8)
+
 ## v0.1.0 - 2026-11-20
 
 Phát hành đầu tiên.
