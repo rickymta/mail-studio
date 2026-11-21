@@ -83,6 +83,22 @@ fn executable(command: &str) -> Option<String> {
     (!exe.is_empty()).then(|| exe.to_string())
 }
 
+/// Whether a window whose process runs `program` belongs to the browser started as `browser`:
+/// the program sits in the browser's folder or below it (Opera's launcher.exe starts opera.exe
+/// from a version subfolder). Other apps reuse the same window class as Chromium browsers
+/// (VS Code, Slack, Electron apps…), so the class alone does not tell the browser's windows apart.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn belongs_to(browser: &str, program: &str) -> bool {
+    let norm = |p: &str| p.replace('/', "\\").to_lowercase();
+    let browser = norm(browser);
+    let Some((dir, _)) = browser.rsplit_once('\\') else {
+        return false;
+    };
+    norm(program)
+        .strip_prefix(dir)
+        .is_some_and(|rest| rest.starts_with('\\'))
+}
+
 #[cfg(windows)]
 mod windows {
     use std::process::Command;
@@ -92,7 +108,7 @@ mod windows {
 
     use tauri::Manager;
 
-    use super::{Family, HEIGHT, WIDTH, executable};
+    use super::{Family, HEIGHT, WIDTH, belongs_to, executable};
     use crate::win32::{self, Window};
 
     /// The browser window opened for the current sign-in. Only a Chromium app window is kept:
@@ -110,13 +126,14 @@ mod windows {
         }
         let bounds = bounds(app);
         // The browser process we start hands the request to the running one and exits, so the
-        // new window is found by what appeared, not by process.
+        // new window is found by what appeared, not by process id; but only among the browser's
+        // own windows, never another app's that happens to open meanwhile.
         thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(10);
             while Instant::now() < deadline {
-                let new = win32::windows_of_class(class)
-                    .into_iter()
-                    .find(|w| !before.contains(w));
+                let new = win32::windows_of_class(class).into_iter().find(|w| {
+                    !before.contains(w) && win32::program(*w).is_some_and(|p| belongs_to(&exe, &p))
+                });
                 if let Some(w) = new {
                     if let Some((x, y, width, height)) = bounds {
                         win32::set_bounds(w, x, y, width, height);
@@ -223,5 +240,42 @@ mod tests {
             Family::Firefox.args("https://a.example/"),
             ["-new-window", "https://a.example/"]
         );
+    }
+
+    #[test]
+    fn only_the_browsers_own_windows() {
+        let chrome = r"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        assert!(belongs_to(
+            chrome,
+            r"C:\PROGRAM FILES\Google\Chrome\Application\chrome.exe"
+        ));
+        assert!(belongs_to(
+            chrome,
+            "C:/Program Files/Google/Chrome/Application/chrome.exe"
+        ));
+        // Opera's launcher starts the browser from a version folder below it.
+        assert!(belongs_to(
+            r"C:\Users\u\AppData\Local\Programs\Opera\launcher.exe",
+            r"C:\Users\u\AppData\Local\Programs\Opera\115.0\opera.exe"
+        ));
+        // Same window class, other apps.
+        assert!(!belongs_to(
+            chrome,
+            r"C:\Users\u\AppData\Local\Programs\Microsoft VS Code\Code.exe"
+        ));
+        assert!(!belongs_to(
+            chrome,
+            r"C:\Users\u\AppData\Local\AnthropicClaude\claude.exe"
+        ));
+        assert!(!belongs_to(
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            chrome
+        ));
+        // A folder that only starts with the browser's folder name.
+        assert!(!belongs_to(
+            chrome,
+            r"C:\Program Files\Google\Chrome\ApplicationX\evil.exe"
+        ));
+        assert!(!belongs_to("chrome.exe", chrome));
     }
 }

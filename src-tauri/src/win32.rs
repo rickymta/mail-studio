@@ -2,7 +2,10 @@
 //! sign-in size, close it afterwards. The only module of the workspace allowed `unsafe`.
 #![allow(unsafe_code)]
 
-use windows_sys::Win32::Foundation::{HWND, LPARAM};
+use windows_sys::Win32::Foundation::{CloseHandle, HWND, LPARAM};
+use windows_sys::Win32::System::Threading::{
+    OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
+};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetWindowThreadProcessId, IsWindow, IsWindowVisible, PostMessageW,
     SWP_NOZORDER, SetWindowPos, WM_CLOSE,
@@ -63,6 +66,25 @@ pub fn alive(w: Window) -> bool {
     let mut pid = 0u32;
     // SAFETY: both calls accept any handle value, valid or not.
     unsafe { IsWindow(hwnd) != 0 && GetWindowThreadProcessId(hwnd, &mut pid) != 0 && pid == w.pid }
+}
+
+/// Full path of the program that owns `w`, e.g. `C:\…\Application\chrome.exe`.
+pub fn program(w: Window) -> Option<String> {
+    // SAFETY: OpenProcess accepts any pid; a null handle (no such process / no access) is
+    // checked before use, and the handle is closed on every path after it was opened. The
+    // buffer outlives the call and `len` tells it the buffer's size in UTF-16 units.
+    unsafe {
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, w.pid);
+        if process.is_null() {
+            return None;
+        }
+        let mut buf = [0u16; 1024];
+        let mut len = buf.len() as u32;
+        let ok =
+            QueryFullProcessImageNameW(process, PROCESS_NAME_WIN32, buf.as_mut_ptr(), &mut len);
+        CloseHandle(process);
+        (ok != 0).then(|| String::from_utf16_lossy(&buf[..len as usize]))
+    }
 }
 
 /// Move and size `w` (physical pixels).
