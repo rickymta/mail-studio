@@ -2,6 +2,12 @@
 
 Các thay đổi đáng chú ý của MailStudio. File này do `pnpm release` cập nhật.
 
+## v0.2.1 - 2026-11-21
+
+Thay đổi từ v0.2.0.
+
+- fix(sign-in): only resize and close the browser window we opened (6956437)
+
 ## v0.2.0 - 2026-11-20
 
 Thay đổi từ v0.1.0.
